@@ -1,0 +1,405 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<scenario>
+  <networks>
+    <network id="300" name="TopGenLan" icon="/usr/share/greybox/clipart/invisible.gif" canvas="0" type="SWITCH">
+      <position x="500.0" y="383.0" lat="45.2067343666811" lon="-117.64074779815238" alt="2.0"/>
+    </network>
+    <network id="16" name="n16" icon="" canvas="1" type="SWITCH">
+      <position x="1503.0" y="828.0" lat="42.320607318387424" lon="-108.63064549843357" alt="2.0"/>
+    </network>
+  </networks>
+  <devices>
+    <device id="138" name="perth-rtr.optus.com" icon="" canvas="0" type="router" class="" image="" compose="" compose_name="">
+      <position x="1270.0" y="860.0" lat="42.107703004277894" lon="-110.72372011043207" alt="2.0"/>
+      <services>
+        <service name="IPForward"/>
+        <service name="FRRzebra"/>
+        <service name="FRRBGP"/>
+        <service name="Keepalived"/>
+      </services>
+    </device>
+    <device id="140" name="sydney-rtr.optus.com" icon="" canvas="0" type="router" class="" image="" compose="" compose_name="">
+      <position x="1460.0" y="870.0" lat="42.04102324926071" lon="-109.01692107060497" alt="2.0"/>
+      <services>
+        <service name="IPForward"/>
+        <service name="FRRzebra"/>
+        <service name="FRRBGP"/>
+        <service name="Keepalived"/>
+      </services>
+    </device>
+    <device id="158" name="perth-rtr.telstra.com.au" icon="" canvas="0" type="router" class="" image="" compose="" compose_name="">
+      <position x="1270.0" y="830.0" lat="42.30732182756284" lon="-110.72372011043207" alt="2.0"/>
+      <services>
+        <service name="IPForward"/>
+        <service name="FRRzebra"/>
+        <service name="FRRBGP"/>
+        <service name="Keepalived"/>
+      </services>
+    </device>
+    <device id="160" name="sydney-rtr.telstra.com.au" icon="" canvas="0" type="router" class="" image="" compose="" compose_name="">
+      <position x="1460.0" y="840.0" lat="42.2408523095449" lon="-109.01692107060497" alt="2.0"/>
+      <services>
+        <service name="Keepalived"/>
+        <service name="IPForward"/>
+        <service name="FRRzebra"/>
+        <service name="FRRBGP"/>
+        <service name="Kea DHCPv4 Server"/>
+      </services>
+    </device>
+    <device id="301" name="topgen.info" icon="/usr/share/greybox/clipart/topgen.gif" canvas="0" type="host" class="" image="" compose="" compose_name="">
+      <position x="517.0" y="372.0" lat="45.2763117262451" lon="-117.48803419985204" alt="2.0"/>
+      <services>
+        <service name="DefaultRoute"/>
+        <service name="Topgen-Nginx"/>
+        <service name="Topgen-Loopback"/>
+        <service name="Keepalived"/>
+      </services>
+    </device>
+    <device id="17" name="n17" icon="" canvas="1" type="PC" class="" image="" compose="" compose_name="">
+      <position x="1538.0" y="757.0" lat="42.79042437962857" lon="-108.31623514899174" alt="2.0"/>
+      <services>
+        <service name="DefaultRoute"/>
+      </services>
+    </device>
+  </devices>
+  <links>
+    <link node1="300" node2="301">
+      <iface1 id="0" name="veth300.0.1"/>
+      <iface2 id="0" name="eth0" mac="00:00:00:aa:02:d4" ip4="10.255.255.10" ip4_mask="24"/>
+      <options delay="0" bandwidth="0" loss="0.0" dup="0" jitter="0" unidirectional="0" buffer="0"/>
+    </link>
+    <link node1="300" node2="138">
+      <iface1 id="38" name="veth300.38.1"/>
+      <iface2 id="0" name="eth0" mac="00:00:00:aa:02:fa" ip4="10.255.255.138" ip4_mask="24"/>
+      <options delay="0" bandwidth="0" loss="0.0" dup="0" jitter="0" unidirectional="0" buffer="0"/>
+    </link>
+    <link node1="300" node2="140">
+      <iface1 id="40" name="veth300.40.1"/>
+      <iface2 id="0" name="eth0" mac="00:00:00:aa:02:fc" ip4="10.255.255.140" ip4_mask="24"/>
+      <options delay="0" bandwidth="0" loss="0.0" dup="0" jitter="0" unidirectional="0" buffer="0"/>
+    </link>
+    <link node1="300" node2="160">
+      <iface1 id="60" name="veth300.60.1"/>
+      <iface2 id="0" name="eth0" mac="00:00:00:aa:03:11" ip4="10.255.255.160" ip4_mask="24"/>
+      <options delay="0" bandwidth="0" loss="0.0" dup="0" jitter="0" unidirectional="0" buffer="0"/>
+    </link>
+    <link node1="300" node2="158">
+      <iface1 id="58" name="veth300.58.1"/>
+      <iface2 id="0" name="eth0" mac="00:00:00:aa:03:0f" ip4="10.255.255.158" ip4_mask="24"/>
+      <options delay="0" bandwidth="0" loss="0.0" dup="0" jitter="0" unidirectional="0" buffer="0"/>
+    </link>
+    <link node1="138" node2="140">
+      <iface1 id="1" name="eth1" mac="00:00:00:aa:02:3e" ip4="49.2.0.10" ip4_mask="30"/>
+      <iface2 id="2" name="eth2" mac="00:00:00:aa:02:3f" ip4="49.2.0.9" ip4_mask="30"/>
+      <options delay="21000" bandwidth="10000000000" loss="0.0" dup="0" jitter="0" unidirectional="0" buffer="0"/>
+    </link>
+    <link node1="140" node2="160">
+      <iface1 id="4" name="eth4" mac="00:00:00:aa:02:48" ip4="49.2.0.29" ip4_mask="30"/>
+      <iface2 id="4" name="eth4" mac="00:00:00:aa:02:49" ip4="49.2.0.30" ip4_mask="30"/>
+      <options delay="4000" bandwidth="10000000000" loss="0.0" dup="0" jitter="0" unidirectional="0" buffer="0"/>
+    </link>
+    <link node1="138" node2="158">
+      <iface1 id="4" name="eth4" mac="00:00:00:aa:02:a4" ip4="110.20.0.30" ip4_mask="30"/>
+      <iface2 id="4" name="eth4" mac="00:00:00:aa:02:a5" ip4="110.20.0.29" ip4_mask="30"/>
+      <options delay="4000" bandwidth="10000000000" loss="0.0" dup="0" jitter="0" unidirectional="0" buffer="0"/>
+    </link>
+    <link node1="158" node2="160">
+      <iface1 id="1" name="eth1" mac="00:00:00:aa:02:a6" ip4="110.20.0.10" ip4_mask="30"/>
+      <iface2 id="2" name="eth2" mac="00:00:00:aa:02:a7" ip4="110.20.0.9" ip4_mask="30"/>
+      <options delay="21000" bandwidth="10000000000" loss="0.0" dup="0" jitter="0" unidirectional="0" buffer="0"/>
+    </link>
+    <link node1="17" node2="16">
+      <iface1 id="0" name="eth0" mac="00:00:00:aa:00:03" ip4="10.0.1.20" ip4_mask="24" ip6="2001:0:0:1::14" ip6_mask="64"/>
+      <iface2 id="1" name="veth16.1.1"/>
+      <options delay="0" bandwidth="0" loss="0.0" dup="0" jitter="0" unidirectional="0" buffer="0"/>
+    </link>
+    <link node1="16" node2="160">
+      <iface1 id="2" name="veth16.2.1"/>
+      <iface2 id="6" name="eth6" mac="00:00:00:aa:00:04" ip4="203.45.123.1" ip4_mask="24"/>
+      <options delay="0" bandwidth="0" loss="0.0" dup="0" jitter="0" unidirectional="0" buffer="0"/>
+    </link>
+  </links>
+  <service_configurations>
+    <service name="FRRzebra" node="138">
+      <templates>
+        <template name="/usr/local/etc/frr/frr.conf"><![CDATA[ description topgen lan segment
+ ip address 10.255.255.138/24
+!
+interface eth1
+ description optus-per-syd 21ms
+ ip address 49.2.0.10/30
+!
+interface eth2
+ description optus-per-sin-singtel 25ms
+ ip address 49.2.0.13/30
+!
+interface eth3
+ description singtel-mnl-per-optus 34ms
+ ip address 49.2.0.22/30
+!
+interface eth4
+ description telstra-per-optus 4ms
+ ip address 110.20.0.30/30
+!
+!interface eth5
+! description optus-per-branch 0ms
+! ip address 165.118.1.1/24
+!
+router bgp 7473
+ bgp router-id 49.2.0.10
+ no bgp ebgp-requires-policy
+ redistribute connected
+ redistribute static
+ neighbor 49.2.0.9 remote-as 7473
+ neighbor 49.2.0.9 next-hop-self
+ neighbor 49.2.0.14 remote-as 7473
+ neighbor 49.2.0.14 next-hop-self
+ neighbor 49.2.0.21 remote-as 7473
+ neighbor 49.2.0.21 next-hop-self
+ neighbor 110.20.0.29 remote-as 1221
+ !neighbor 165.118.1.4 remote-as 7477
+!
+ip route 0.0.0.0/0 10.255.255.10
+!
+ip route 103.0.0.0/8 10.255.255.10
+ip route 114.0.0.0/8 10.255.255.10
+ip route 116.0.0.0/8 10.255.255.10
+ip route 175.0.0.0/8 10.255.255.10
+!!]]></template>
+      </templates>
+    </service>
+    <service name="FRRzebra" node="140">
+      <templates>
+        <template name="/usr/local/etc/frr/frr.conf"><![CDATA[ description topgen lan segment
+ ip address 10.255.255.140/24
+!
+interface eth1
+ description singtel-mnl-syd-optus 41ms
+ ip address 49.2.0.6/30
+!
+interface eth2
+ description optus-per-syd 21ms
+ ip address 49.2.0.9/30
+!
+interface eth3
+ description singtel-sin-syd-optus 41ms
+ ip address 49.2.0.18/30
+!
+interface eth4
+ description optus-syd-telstra 4ms
+ ip address 49.2.0.29/30
+!
+interface eth5
+ description optus-syd-iap3-iap3 55ms
+ ip address 49.2.0.37/30
+!
+interface eth6
+ description tata-tyo-syd-optus 52ms
+ ip address 36.96.0.50/30
+!
+!interface eth7
+! description optus-syd-branch 0ms
+! ip address 49.0.8.1/24
+!
+router bgp 7473
+ bgp router-id 49.2.0.6
+ no bgp ebgp-requires-policy
+ redistribute connected
+ redistribute static
+ neighbor 49.2.0.5 remote-as 7473
+ neighbor 49.2.0.5 next-hop-self
+ neighbor 49.2.0.10 remote-as 7473
+ neighbor 49.2.0.10 next-hop-self
+ neighbor 49.2.0.17 remote-as 7473
+ neighbor 49.2.0.17 next-hop-self
+ neighbor 49.2.0.30 remote-as 1221
+ neighbor 49.2.0.38 remote-as 3475
+ neighbor 36.96.0.49 remote-as 6453
+ !neighbor 49.0.8.4 remote-as 7476
+!
+ip route 0.0.0.0/0 10.255.255.10
+!
+ip route 49.0.0.0/8 10.255.255.10
+ip route 111.0.0.0/8 10.255.255.10
+ip route 117.0.0.0/8 10.255.255.10
+ip route 150.0.0.0/8 10.255.255.10
+!!]]></template>
+      </templates>
+    </service>
+    <service name="FRRzebra" node="158">
+      <templates>
+        <template name="/usr/local/etc/frr/frr.conf"><![CDATA[ description topgen lan segment
+ ip address 10.255.255.158/24
+!
+interface eth1
+ description telstra-per-syd 21ms
+ ip address 110.20.0.10/30
+!
+interface eth2
+ description telstra-per-sin 25ms
+ ip address 110.20.0.13/30
+!
+interface eth3
+ description telstra-mnl-per 34ms
+ ip address 110.20.0.22/30
+!
+interface eth4
+ description telstra-per-optus 4ms
+ ip address 110.20.0.29/30
+!
+!interface eth5
+! description telstra-per-branch 0ms
+! ip address 27.54.92.1/24
+!
+router bgp 1221
+ bgp router-id 110.20.0.10
+ no bgp ebgp-requires-policy
+ redistribute connected
+ redistribute static
+ neighbor 110.20.0.9 remote-as 1221
+ neighbor 110.20.0.9 next-hop-self
+ neighbor 110.20.0.14 remote-as 1221
+ neighbor 110.20.0.14 next-hop-self
+ neighbor 110.20.0.21 remote-as 1221
+ neighbor 110.20.0.21 next-hop-self
+ neighbor 110.20.0.30 remote-as 7473
+!
+ip route 0.0.0.0/0 10.255.255.10
+!
+ip route 27.0.0.0/8 10.255.255.10
+ip route 106.0.0.0/8 10.255.255.10
+ip route 115.0.0.0/8 10.255.255.10
+ip route 203.0.0.0/8 10.255.255.10
+!!]]></template>
+      </templates>
+    </service>
+    <service name="FRRzebra" node="160">
+      <templates>
+        <template name="/usr/local/etc/frr/frr.conf"><![CDATA[description topgen lan segment
+ ip address 10.255.255.160/24
+!
+interface eth1
+ description telstra-mnl-syd 41ms
+ ip address 110.20.0.6/30
+!
+interface eth2
+ description telstra-per-syd 21ms
+ ip address 110.20.0.9/30
+!
+interface eth3
+ description telstra-sin-syd 41ms
+ ip address 110.20.0.18/30
+!
+interface eth4
+ description optus-syd-telstra 4ms
+ ip address 49.2.0.30/30
+!
+interface eth5
+ description centurylink-lax-syd-telstra 80ms
+ ip address 50.128.0.66/30
+!
+interface eth6
+  description telstra-syd-branch 0ms
+  ip address 203.45.123.1/24
+
+!interface eth7
+!  description exercise-interface 0ms
+!  ip address 10.255.254.2/24
+
+router bgp 1221
+ bgp router-id 110.20.0.6
+ no bgp ebgp-requires-policy
+ redistribute connected
+ redistribute static
+ neighbor 110.20.0.5 remote-as 1221
+ neighbor 110.20.0.5 next-hop-self
+ neighbor 110.20.0.10 remote-as 1221
+ neighbor 110.20.0.10 next-hop-self
+ neighbor 110.20.0.17 remote-as 1221
+ neighbor 110.20.0.17 next-hop-self
+ neighbor 49.2.0.29 remote-as 7473
+ neighbor 50.128.0.65 remote-as 1456
+ !neighbor 140.168.135.2 remote-as 9466
+ !neighbor 140.168.135.3 remote-as 4768
+ !neighbor 140.168.135.4 remote-as 1224
+!
+!ip route 1.0.0.0/32 10.255.254.1
+ip route 0.0.0.0/0 10.255.255.10
+!
+ip route 49.0.0.0/8 10.255.255.10
+ip route 114.0.0.0/8 10.255.255.10
+ip route 125.0.0.0/8 10.255.255.10
+ip route 198.0.0.0/8 10.255.255.10
+!!]]></template>
+      </templates>
+    </service>
+    <service name="Kea DHCPv4 Server" node="160">
+      <templates>
+        <template name="/etc/kea/kea-dhcp4.conf"><![CDATA[{
+  "Dhcp4": {
+    "interfaces-config": {
+      "interfaces": [
+        "eth6"
+      ]
+    },
+    "allocator": "random",
+    "lease-database": {
+      "type": "memfile",
+      "name": "dhcp4.leases"
+    },
+    "option-data": [
+      {
+        "name": "domain-name-servers",
+        "data": "8.8.8.8, 8.8.4.4"
+      }
+    ],
+    "subnet4": [
+      {
+        "subnet": "203.45.123.1/24",
+        "pools": [
+          {
+            "pool": "203.45.123.127 - 203.45.123.254"
+          }
+        ],
+        "option-data": [
+          {
+            "name": "routers",
+            "data": "203.45.123.1"
+          }
+        ]
+      }
+    ]
+  }
+}]]></template>
+      </templates>
+    </service>
+  </service_configurations>
+  <session_origin lat="47.579166412353516" lon="-122.13232421875" alt="2.0" scale="100000.0"/>
+  <session_options>
+    <configuration name="controlnet" value=""/>
+    <configuration name="controlnet0" value=""/>
+    <configuration name="controlnet1" value=""/>
+    <configuration name="controlnet2" value=""/>
+    <configuration name="controlnet3" value=""/>
+    <configuration name="controlnet_updown_script" value=""/>
+    <configuration name="enablerj45" value="1"/>
+    <configuration name="preservedir" value="0"/>
+    <configuration name="enablesdt" value="0"/>
+    <configuration name="sdturl" value="tcp://127.0.0.1:50000/"/>
+    <configuration name="ovs" value="0"/>
+    <configuration name="platform_id_start" value="1"/>
+    <configuration name="nem_id_start" value="1"/>
+    <configuration name="link_enabled" value="1"/>
+    <configuration name="loss_threshold" value="30"/>
+    <configuration name="link_interval" value="1"/>
+    <configuration name="link_timeout" value="4"/>
+    <configuration name="mtu" value="0"/>
+    <configuration name="checksums" value="0"/>
+  </session_options>
+  <session_metadata>
+    <configuration name="shapes" value="[]"/>
+    <configuration name="edges" value="[{&quot;token&quot;: &quot;138-0-300-38&quot;, &quot;width&quot;: 3.0, &quot;color&quot;: &quot;#ffff00&quot;}, {&quot;token&quot;: &quot;140-0-300-40&quot;, &quot;width&quot;: 3.0, &quot;color&quot;: &quot;#ffff00&quot;}, {&quot;token&quot;: &quot;160-0-300-60&quot;, &quot;width&quot;: 3.0, &quot;color&quot;: &quot;#ffff00&quot;}, {&quot;token&quot;: &quot;158-0-300-58&quot;, &quot;width&quot;: 3.0, &quot;color&quot;: &quot;#ffff00&quot;}]"/>
+    <configuration name="hidden" value="[]"/>
+    <configuration name="canvas" value="{&quot;gridlines&quot;: false, &quot;canvases&quot;: [{&quot;id&quot;: 1, &quot;wallpaper&quot;: &quot;/opt/fauxnet/core/clipart/wmap.gif&quot;, &quot;wallpaper_style&quot;: 0, &quot;fit_image&quot;: true, &quot;dimensions&quot;: [1600, 1050]}]}"/>
+  </session_metadata>
+</scenario>

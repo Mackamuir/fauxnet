@@ -1,0 +1,31 @@
+server {
+    listen 80;
+    listen 443 ssl;
+
+    server_name $vhost_base;
+
+    # SSL certificate (stored in vhost directory)
+    ssl_certificate $cert_path;
+    ssl_certificate_key $vh_key;
+
+    # Document root points to html subdirectory
+    root $html_dir;
+
+    # Default index files
+    index index.html index.htm;
+
+    # Logging
+    access_log /var/log/nginx/$vhost_base-access.log;
+    error_log /var/log/nginx/$vhost_base-error.log;
+
+    # Default location - serve static files
+    location / {
+        try_files $$uri $$uri/ =404;
+    }
+
+    # Static file types - serve directly with caching
+    location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot|pdf|xml|txt)$$ {
+        expires 1d;
+        add_header Cache-Control "public, immutable";
+    }
+}

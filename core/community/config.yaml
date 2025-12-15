@@ -1,0 +1,14 @@
+Actions:
+- browse
+- ping
+- PortScan
+- HTTPEnum
+- HTTPSpider
+- SMBEnum
+Enable: true
+Sleep:
+  Max: 120
+  Min: 30
+Targets:
+- 192.168.1.1
+
