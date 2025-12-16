@@ -18,7 +18,7 @@ install_core() {
     if ! [ -f "/usr/lib/systemd/system/core-daemon.service" ]; then
         echo "Installing CORE..."
         git clone https://github.com/coreemu/core.git /tmp/core || true
-        cd /tmp/core && ./setup.sh
+        (cd /tmp/core && ./setup.sh)
         grep -q "custom_services_dir = $CORE_DIR/custom_services" /opt/core/etc/core.conf || \
             sudo sed -i "/\[core-daemon\]/a custom_services_dir = $CORE_DIR/custom_services" /opt/core/etc/core.conf
     fi
@@ -55,25 +55,25 @@ install_folders() {
 # Install backend
 install_backend() {
     echo "Installing backend..."
-    python3 -m venv "$BACKEND_DIR/venv"
-    "$BACKEND_DIR/venv/bin/pip" install --upgrade pip
-    "$BACKEND_DIR/venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt"
+    sudo python3 -m venv "$BACKEND_DIR/venv"
+    sudo "$BACKEND_DIR/venv/bin/pip" install --upgrade pip
+    sudo "$BACKEND_DIR/venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt"
     sudo cp .env.example "$BACKEND_DIR/.env"
     echo "Initializing database..."
-    cd "$BACKEND_DIR" && "$BACKEND_DIR/venv/bin/python" init_admin.py
+    (cd "$BACKEND_DIR" && "$BACKEND_DIR/venv/bin/python" init_admin.py)
 }
 
 # Install frontend
 install_frontend() {
     echo "Installing frontend..."
     sudo chown -R root:root "$FRONTEND_DIR"
-    cd "$FRONTEND_DIR" && sudo npm install
+    (cd "$FRONTEND_DIR" && sudo npm install)
 }
 
 # Install systemd services
 install_services() {
     echo "Installing systemd services..."
-    sudo cp systemd/* /etc/systemd/system/
+    sudo cp ./systemd/* /etc/systemd/system/
     sudo systemctl daemon-reload
     sudo systemctl enable --now fauxnet.target
 }
