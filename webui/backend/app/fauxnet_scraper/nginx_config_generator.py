@@ -11,7 +11,7 @@ import socket
 import logging
 from string import Template
 
-from .config import (FAUXNET_VHOSTS_WWW, FAUXNET_VHOSTS_CONFIG, FAUXNET_VARETC, FAUXNET_TEMPLATES)
+from .config import (FAUXNET_VHOSTS_WWW, FAUXNET_VHOSTS_CONFIG, FAUXNET_CONFIG, FAUXNET_TEMPLATES)
 
 logger = logging.getLogger("fauxnet")
 
@@ -65,7 +65,7 @@ async def generate_nginx_conf(site_urls=None, progress_tracker=None):
 
     logger.info(f'Generating nginx configs for {len(vhosts_www)} vhosts...')
 
-    nginx_conf = os.path.join(FAUXNET_VARETC, "nginx.conf")
+    nginx_conf = os.path.join(FAUXNET_CONFIG, "nginx.conf")
     if os.path.exists(nginx_conf):
         os.remove(nginx_conf)
 
@@ -75,7 +75,7 @@ async def generate_nginx_conf(site_urls=None, progress_tracker=None):
             with open(os.path.join(FAUXNET_TEMPLATES, "nginx.conf_base"), 'r') as template:
                 template_source = Template(template.read())
                 template_result = template_source.substitute(
-                    FAUXNET_VARETC=FAUXNET_VARETC,
+                    FAUXNET_CONFIG=FAUXNET_CONFIG,
                     FAUXNET_VHOSTS=FAUXNET_VHOSTS_WWW
                 )
             f.write(template_result)
@@ -111,7 +111,7 @@ async def generate_nginx_conf(site_urls=None, progress_tracker=None):
                         vhost_base=vhost_name,
                         vhost=vhost_config_dir,
                         html_dir=html_dir,
-                        vh_key=os.path.join(FAUXNET_VARETC, "fauxnet_vh.key")
+                        vh_key=os.path.join(FAUXNET_CONFIG, "fauxnet_vh.key")
                     )
                     f.write(nginx_block)
                 logger.debug(f"[{vhost_name}] Wrote {vhost_nginx_conf}")

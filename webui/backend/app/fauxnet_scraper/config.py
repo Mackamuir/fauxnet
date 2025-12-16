@@ -11,7 +11,7 @@ import resource
 FAUXNET_BASE = os.path.realpath("/opt/fauxnet")
 FAUXNET_VHOSTS_WWW = os.path.join(FAUXNET_BASE, "vhosts_www")  # Web content only
 FAUXNET_VHOSTS_CONFIG = os.path.join(FAUXNET_BASE, "vhosts_config")  # Certs, nginx configs, hosts files
-FAUXNET_VARETC = os.path.join(FAUXNET_BASE, "config")
+FAUXNET_CONFIG = os.path.join(FAUXNET_BASE, "config")
 
 # Legacy compatibility
 FAUXNET_VHOSTS = FAUXNET_VHOSTS_WWW  # For backward compatibility with existing code
@@ -20,7 +20,7 @@ FAUXNET_VHOSTS = FAUXNET_VHOSTS_WWW  # For backward compatibility with existing 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 FAUXNET_TEMPLATES = os.path.join(_THIS_DIR, "templates")
 
-FAUXNET_ORIG = os.path.join(FAUXNET_VARETC, "scrape_sites.txt")
+FAUXNET_ORIG = os.path.join(FAUXNET_CONFIG, "scrape_sites.txt")
 FAUXNET_CUSTOM_VHOSTS = os.path.join(FAUXNET_BASE, "custom_vhosts")
 
 # fauxnet.info vhost directory:
@@ -48,4 +48,4 @@ def setup_environment():
     # Ensure directories exist
     os.makedirs(FAUXNET_VHOSTS_WWW, exist_ok=True)
     os.makedirs(FAUXNET_VHOSTS_CONFIG, exist_ok=True)
-    os.makedirs(FAUXNET_VARETC, exist_ok=True)
+    os.makedirs(FAUXNET_CONFIG, exist_ok=True)

@@ -6,7 +6,7 @@ PartOf=fauxnet.target
 Type=simple
 User=root
 WorkingDirectory=/opt/fauxnet/webui/backend
-ExecStart=/usr/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info
+ExecStart=/usr/bin/pipx run --spec uvicorn uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info
 Restart=always
 
 [Install]

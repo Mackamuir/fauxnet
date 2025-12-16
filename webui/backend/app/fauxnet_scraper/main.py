@@ -10,7 +10,7 @@ import os
 import logging
 import shutil
 
-from .config import setup_environment, FAUXNET_ORIG, FAUXNET_VARETC
+from .config import setup_environment, FAUXNET_ORIG, FAUXNET_CONFIG
 from .utils import setup_logging
 from .scraper import download_websites, get_discovered_urls
 from .certificates import generate_CA, generate_vhost_certificates
@@ -141,7 +141,7 @@ async def scrape_sites_async(sites_file=None, sites_list=None, options=None, pro
             "success": True,
             "sites_scraped": len(urls),
             "urls_discovered": sum(len(urls) for urls in site_urls.values()),
-            "config_location": FAUXNET_VARETC
+            "config_location": FAUXNET_CONFIG
         }
 
     except Exception as e:

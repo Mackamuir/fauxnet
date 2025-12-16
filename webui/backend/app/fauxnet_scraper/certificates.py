@@ -12,7 +12,7 @@ import shutil
 import logging
 from string import Template
 
-from .config import (FAUXNET_VARETC, FAUXNET_VHOSTS_WWW, FAUXNET_VHOSTS_CONFIG,
+from .config import (FAUXNET_CONFIG, FAUXNET_VHOSTS_WWW, FAUXNET_VHOSTS_CONFIG,
                    FAUXNET_SITE, FAUXNET_TEMPLATES)
 from . import config
 
@@ -21,8 +21,8 @@ logger = logging.getLogger("fauxnet")
 async def generate_CA():
     """Generate SSL certificates for Fauxnet"""
     logger.debug("Checking for existing CA certificates")
-    ca_key = os.path.join(FAUXNET_VARETC, "fauxnet_ca.key")
-    ca_cert = os.path.join(FAUXNET_VARETC, "fauxnet_ca.cer")
+    ca_key = os.path.join(FAUXNET_CONFIG, "fauxnet_ca.key")
+    ca_cert = os.path.join(FAUXNET_CONFIG, "fauxnet_ca.cer")
 
     # Generate CA if not exists
     if not (os.path.exists(ca_key) and os.path.exists(ca_cert)):
@@ -43,7 +43,7 @@ async def generate_CA():
     logger.debug("Copied CA cert to fauxnet.info site")
 
     # Generate shared vhost key
-    vh_key = os.path.join(FAUXNET_VARETC, "fauxnet_vh.key")
+    vh_key = os.path.join(FAUXNET_CONFIG, "fauxnet_vh.key")
     if not os.path.exists(vh_key):
         logger.debug("Generating shared vhost key")
         proc = await asyncio.create_subprocess_exec(
@@ -116,7 +116,7 @@ async def generate_vhost_certificates(progress_tracker=None):
         # Generate CSR
         csr_cmd = [
             'openssl', 'req', '-new',
-            '-key', os.path.join(FAUXNET_VARETC, "fauxnet_vh.key"),
+            '-key', os.path.join(FAUXNET_CONFIG, "fauxnet_vh.key"),
             '-subj', '/C=US/ST=PA/L=Pgh/O=CMU/OU=CERT/CN=fauxnet_vh',
             '-addext', f'subjectAltName = DNS:{vhost_base}'
         ]

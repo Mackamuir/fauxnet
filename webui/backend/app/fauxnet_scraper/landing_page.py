@@ -10,7 +10,7 @@ import json
 import logging
 from string import Template
 
-from .config import (FAUXNET_VHOSTS_WWW, FAUXNET_VHOSTS_CONFIG, FAUXNET_SITE, FAUXNET_VARETC,
+from .config import (FAUXNET_VHOSTS_WWW, FAUXNET_VHOSTS_CONFIG, FAUXNET_SITE, FAUXNET_CONFIG,
                    FAUXNET_TEMPLATES)
 
 logger = logging.getLogger("fauxnet")
@@ -61,7 +61,7 @@ async def generate_sites_summary(site_urls):
             "urls": sorted(urls)
         }
 
-    config_path = os.path.join(FAUXNET_VARETC, "sites_summary.json")
+    config_path = os.path.join(FAUXNET_CONFIG, "sites_summary.json")
     with open(config_path, 'w') as f:
         json.dump(config, f, indent=2)
 
