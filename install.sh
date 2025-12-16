@@ -29,7 +29,7 @@ install_deps() {
     echo "Installing system dependencies..."
     sudo systemctl mask kea-dhcp4-server kea-dhcp6-server kea-ddns-server isc-dhcp-server isc-dhcp6-server nginx || true
     sudo apt update
-    sudo apt install -y isc-dhcp-server isc-dhcp-client kea openssh-client openssh-server keepalived nginx python3 python3-pip python3-venv nodejs npm pipx
+    sudo apt install -y isc-dhcp-server isc-dhcp-client kea openssh-client openssh-server keepalived nginx python3 python3-pip python3-venv nodejs npm
 }
 
 # Copy files to installation directories
@@ -55,11 +55,12 @@ install_folders() {
 # Install backend
 install_backend() {
     echo "Installing backend..."
-    pipx install uvicorn --include-deps || pipx upgrade uvicorn
-    pipx runpip uvicorn install -r "$BACKEND_DIR/requirements.txt"
+    python3 -m venv "$BACKEND_DIR/venv"
+    "$BACKEND_DIR/venv/bin/pip" install --upgrade pip
+    "$BACKEND_DIR/venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt"
     sudo cp .env.example "$BACKEND_DIR/.env"
     echo "Initializing database..."
-    cd "$BACKEND_DIR" && ~/.local/pipx/venvs/uvicorn/bin/python init_admin.py
+    cd "$BACKEND_DIR" && "$BACKEND_DIR/venv/bin/python" init_admin.py
 }
 
 # Install frontend
