@@ -76,16 +76,6 @@ class CommunityManager:
             session_id = await CommunityManager.get_session_id()
             if session_id and session_id in _session_topology_files:
                 xml_file = _session_topology_files[session_id]
-            else:
-                # Fallback: try to find any XML file in the topology directory
-                topology_dir = Path(settings.CORE_TOPOLOGY_DIR)
-                xml_files = list(topology_dir.glob("*.xml"))
-
-                if not xml_files:
-                    return []
-
-                # Use the first XML file found
-                xml_file = str(xml_files[0])
 
         try:
             tree = ET.parse(xml_file)
