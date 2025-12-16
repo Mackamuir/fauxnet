@@ -15,11 +15,13 @@ echo "=== Fauxnet Installation ==="
 
 # Install CORE
 install_core() {
-    echo "Installing CORE..."
-    git clone https://github.com/coreemu/core.git /tmp/core || true
-    cd /tmp/core && ./setup.sh
-    grep -q 'custom_services_dir = /opt/fauxnet/core/custom_services' /opt/core/etc/core.conf || \
-        sudo sed -i '/\[core-daemon\]/a custom_services_dir = /opt/fauxnet/core/custom_services' /opt/core/etc/core.conf
+    if ! [ -f "/usr/lib/systemd/system/core-daemon.service" ]; then
+        echo "Installing CORE..."
+        git clone https://github.com/coreemu/core.git /tmp/core || true
+        cd /tmp/core && ./setup.sh
+        grep -q "custom_services_dir = $CORE_DIR/custom_services" /opt/core/etc/core.conf || \
+            sudo sed -i "/\[core-daemon\]/a custom_services_dir = $CORE_DIR/custom_services" /opt/core/etc/core.conf
+    fi
 }
 
 # Install system dependencies
