@@ -59,7 +59,7 @@ install_backend() {
     pipx runpip uvicorn install -r "$BACKEND_DIR/requirements.txt"
     sudo cp .env.example "$BACKEND_DIR/.env"
     echo "Initializing database..."
-    cd "$BACKEND_DIR" && pipx run --spec uvicorn python3 init_admin.py
+    cd "$BACKEND_DIR" && ~/.local/pipx/venvs/uvicorn/bin/python init_admin.py
 }
 
 # Install frontend
