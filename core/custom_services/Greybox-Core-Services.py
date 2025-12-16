@@ -68,7 +68,7 @@ class Topgen_Postfix(CoreService):
 class KeaDhcpService(CoreService):
     name: str = "Kea DHCPv4 Server"
     group: str = "FauxNet"
-    directories: list[str] = ["/etc/kea/", "/var/lib/kea", "/run/kea"]
+    directories: list[str] = ["/etc/kea/", "/var/lib/kea", "/var/run/kea"]
     files: list[str] = ["/etc/kea/kea-dhcp4.conf"]
     executables: list[str] = ["kea-dhcp4"]
     startup: list[str] = ["touch /var/lib/kea/dhcp4.leases", "kea-dhcp4 -c /etc/kea/kea-dhcp4.conf"]
