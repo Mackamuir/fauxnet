@@ -1,11 +1,16 @@
 .PHONY: all install install-deps install-backend install-frontend clean uninstall
 
-INSTALL_DIR = /opt/fauxnet-test
+INSTALL_DIR = /opt/fauxnet
 WEBUI_DIR = $(INSTALL_DIR)/webui
 BACKEND_DIR = $(WEBUI_DIR)/backend
 FRONTEND_DIR = $(WEBUI_DIR)/frontend
 
 all: install
+
+install-core:
+	git clone https://github.com/coreemu/core.git /tmp/core
+	cd /tmp/core
+	sudo ./setup.sh
 
 install-deps:
 	@echo "Installing system dependencies..."
@@ -36,7 +41,7 @@ install-frontend: install-deps
 	@echo "Installing Node.js dependencies..."
 	cd $(FRONTEND_DIR) && sudo npm install
 
-install: install-backend install-frontend
+install: install-core install-backend install-frontend
 	@echo "Installation complete!"
 	@echo "Backend installed to: $(BACKEND_DIR)"
 	@echo "Frontend installed to: $(FRONTEND_DIR)"
