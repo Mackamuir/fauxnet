@@ -13,6 +13,7 @@ from app.schemas import (
     CommunityConfig
 )
 from app.config import settings
+from app.services.core import _session_topology_files
 
 
 class CommunityManager:
@@ -68,18 +69,23 @@ class CommunityManager:
         """Get list of nodes with Community service from topology XML file
 
         Args:
-            xml_file: Path to XML file. If None, uses CORE_TOPOLOGY_DIR from settings
+            xml_file: Path to XML file. If None, uses the currently loaded topology file
         """
         if xml_file is None:
-            # Try to find the active topology XML file
-            topology_dir = Path(settings.CORE_TOPOLOGY_DIR)
-            xml_files = list(topology_dir.glob("*.xml"))
+            # Get the currently loaded topology file from the active session
+            session_id = await CommunityManager.get_session_id()
+            if session_id and session_id in _session_topology_files:
+                xml_file = _session_topology_files[session_id]
+            else:
+                # Fallback: try to find any XML file in the topology directory
+                topology_dir = Path(settings.CORE_TOPOLOGY_DIR)
+                xml_files = list(topology_dir.glob("*.xml"))
 
-            if not xml_files:
-                return []
+                if not xml_files:
+                    return []
 
-            # Use the first XML file found (or we could check for a specific name)
-            xml_file = str(xml_files[0])
+                # Use the first XML file found
+                xml_file = str(xml_files[0])
 
         try:
             tree = ET.parse(xml_file)
