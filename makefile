@@ -9,8 +9,7 @@ all: install
 
 install-core:
 	git clone https://github.com/coreemu/core.git /tmp/core
-	cd /tmp/core
-	sudo ./setup.sh
+	cd /tmp/core && ./setup.sh
 
 install-deps:
 	@echo "Installing system dependencies..."
