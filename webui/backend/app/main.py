@@ -38,8 +38,6 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-# Debug: Print CORS origins on startup
-print(f"CORS Origins configured: {settings.CORS_ORIGINS}")
 
 # Include routers
 app.include_router(auth.router)

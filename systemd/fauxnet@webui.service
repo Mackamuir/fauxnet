@@ -1,0 +1,13 @@
+[Unit]
+Description=Fauxnet WebUI
+PartOf=fauxnet.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/fauxnet/webui/frontend
+ExecStart=npm run dev
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

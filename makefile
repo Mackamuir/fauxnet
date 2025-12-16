@@ -8,7 +8,7 @@ FRONTEND_DIR = $(WEBUI_DIR)/frontend
 all: install
 
 install-core:
-	git clone https://github.com/coreemu/core.git /tmp/core
+	git clone https://github.com/coreemu/core.git /tmp/core || true
 	cd /tmp/core && ./setup.sh
 
 install-deps:
@@ -20,6 +20,11 @@ install-deps:
 	grep -q 'custom_services_dir = /opt/fauxnet/core/custom_services' /opt/core/etc/core.conf || \
 	  sudo sed -i '/\[core-daemon\]/a custom_services_dir = /opt/fauxnet/core/custom_services' /opt/core/etc/core.conf
 
+install-services:
+	sudo cp systemd/* /etc/systemd/system/
+	sudo systemctl daemon-reload
+	sudo systemctl enable --now fauxnet.target
+
 install-backend: install-deps
 	@echo "Installing backend to $(BACKEND_DIR)..."
 	sudo mkdir -p $(BACKEND_DIR)
@@ -28,7 +33,7 @@ install-backend: install-deps
 	@echo "Installing Python dependencies..."
 	cd $(BACKEND_DIR) && sudo python3 -m pip install -r requirements.txt --break-system-packages
 	@echo "Setting up backend environment..."
-	sudo cp webui/backend/.env.example $(BACKEND_DIR)/.env
+	sudo cp .env.example $(BACKEND_DIR)/.env
 	@echo "Initializing database..."
 	cd $(BACKEND_DIR) && sudo python3 init_admin.py
 

@@ -1,0 +1,6 @@
+[Unit]
+Description=Fauxnet - Web Frontend for Greybox/Core
+Requires=fauxnet@webui.service fauxnet@api.service
+
+[Install]
+WantedBy=multi-user.target
