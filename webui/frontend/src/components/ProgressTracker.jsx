@@ -76,8 +76,7 @@ export default function ProgressTracker({ operationId, onComplete, onError, meth
       return
     }
 
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-    const url = `${apiUrl}/api/vhosts/scrape/progress/${operationId}`
+    const url = `/api/vhosts/scrape/progress/${operationId}`
 
     // Use fetch with streaming instead of EventSource to support auth headers
     const controller = new AbortController()

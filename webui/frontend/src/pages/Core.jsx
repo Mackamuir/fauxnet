@@ -87,7 +87,7 @@ export default function Core() {
     // Create EventSource for SSE
     const token = localStorage.getItem('token')
     const eventSource = new EventSource(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/core/load/stream/${taskId}?token=${token}`
+      `/api/core/load/stream/${taskId}?token=${token}`
     )
     eventSourceRef.current = eventSource
 
