@@ -19,6 +19,7 @@ install_core() {
         echo "Installing CORE..."
         git clone https://github.com/coreemu/core.git /tmp/core || true
         (cd /tmp/core && ./setup.sh)
+        (cd /tmp/core && inv install)
         grep -q "custom_services_dir = $CORE_DIR/custom_services" /opt/core/etc/core.conf || \
             sudo sed -i "/\[core-daemon\]/a custom_services_dir = $CORE_DIR/custom_services" /opt/core/etc/core.conf
     fi
