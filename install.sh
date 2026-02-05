@@ -23,6 +23,7 @@ install_core() {
         grep -q "custom_services_dir = $CORE_DIR/custom_services" /opt/core/etc/core.conf || \
             sudo sed -i "/\[core-daemon\]/a custom_services_dir = $CORE_DIR/custom_services" /opt/core/etc/core.conf
     fi
+    systemctl start core-daemon
 }
 
 # Install system dependencies
