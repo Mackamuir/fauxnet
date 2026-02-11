@@ -100,6 +100,7 @@ async def download_website(url, options, progress_tracker=None):
         # Common flags from topgen-scrape.sh
         # -E: adjust extension (.html)
         # -H: span hosts for CDN/external resources (creates subdirs per host)
+        # -D: restrict recursion to specified domain only (prevents recursing on spanned hosts)
         # -N: timestamping (don't re-download if not newer)
         # --convert-file-only: convert links for offline browsing
         # --no-check-certificate: ignore SSL cert errors
@@ -107,6 +108,7 @@ async def download_website(url, options, progress_tracker=None):
         # --random-wait: random wait between downloads
         # -t 2: retry 2 times
         wget_cmd += " -E -H -N --convert-file-only --no-check-certificate"
+        wget_cmd += f" -D {hostname}"  # Restrict recursion to original hostname only
         wget_cmd += " -e robots=off --random-wait -t 2 -U 'Mozilla/5.0 (X11)'"
         wget_cmd += f" -P {vhosts_www_dir} {url}"
 
