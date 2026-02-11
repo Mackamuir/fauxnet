@@ -152,3 +152,17 @@ export const runSpecificPhases = async (phases, sites = null, options = null) =>
   })
   return response.data
 }
+
+// Get vhost index status
+export const getIndexStatus = async () => {
+  const response = await api.get('/api/vhosts/index/status')
+  return response.data
+}
+
+// Manually refresh vhost index
+export const refreshIndex = async (includeStats = true) => {
+  const response = await api.post('/api/vhosts/index/refresh', null, {
+    params: { include_stats: includeStats }
+  })
+  return response.data
+}

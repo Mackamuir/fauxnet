@@ -15,6 +15,7 @@ from datetime import datetime
 
 from app.fauxnet_scraper import scrape_sites_async
 from app.services.progress import ProgressManager
+from app.services.vhost_indexer import VhostIndexer
 
 logger = logging.getLogger(__name__)
 
@@ -138,93 +139,21 @@ class VhostsManager:
     @staticmethod
     async def list_vhosts(include_stats: bool = False, max_parallel: int = 50) -> List[Dict]:
         """
-        List all virtual hosts (scans vhosts_www for content)
+        List all virtual hosts using the indexed database (very fast)
 
         Args:
-            include_stats: If True, calculate size and file count (slower).
-                          If False, skip stats for much faster listing (default).
-            max_parallel: Maximum number of vhosts to process in parallel (default 50)
+            include_stats: If True, include size_bytes and file_count from index.
+                          If False, skip stats for faster query (default).
+            max_parallel: Deprecated - kept for API compatibility
 
         Returns:
-            List of vhost dictionaries
+            List of vhost dictionaries from the index
         """
         VhostsManager.ensure_directories()
-        vhosts = []
 
-        if not os.path.exists(VhostsManager.VHOSTS_WWW_DIR):
-            return vhosts
-
-        # Load scraped sites list to identify directly scraped vhosts
-        scraped_sites = set()
-        if os.path.exists(VhostsManager.SCRAPE_SITES_FILE):
-            try:
-                with open(VhostsManager.SCRAPE_SITES_FILE, 'r') as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith('#'):
-                            # Extract hostname from URL
-                            from urllib.parse import urlparse
-                            parsed = urlparse(line if '://' in line else f'http://{line}')
-                            hostname = parsed.netloc or parsed.path
-                            if hostname:
-                                scraped_sites.add(hostname)
-            except Exception:
-                pass
-
-        # Load custom sites
-        custom_sites = set()
-        if os.path.exists(VhostsManager.CUSTOM_SITES_FILE):
-            try:
-                with open(VhostsManager.CUSTOM_SITES_FILE, 'r') as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith('#'):
-                            # Extract hostname from URL
-                            from urllib.parse import urlparse
-                            parsed = urlparse(line if '://' in line else f'http://{line}')
-                            hostname = parsed.netloc or parsed.path
-                            if hostname:
-                                custom_sites.add(hostname)
-            except Exception:
-                pass
-
-        # Fauxnet infrastructure sites
-        fauxnet_sites = {'fauxnet.info', 'www.msftncsi.com'}
-
-        # Get list of vhost directories
-        vhost_names = [
-            name for name in os.listdir(VhostsManager.VHOSTS_WWW_DIR)
-            if os.path.isdir(os.path.join(VhostsManager.VHOSTS_WWW_DIR, name))
-        ]
-
-        # Process vhosts in parallel batches for better performance
-        for i in range(0, len(vhost_names), max_parallel):
-            batch = vhost_names[i:i + max_parallel]
-
-            # Process batch in parallel
-            tasks = [
-                VhostsManager._process_single_vhost(
-                    vhost_name,
-                    scraped_sites,
-                    custom_sites,
-                    fauxnet_sites,
-                    include_stats
-                )
-                for vhost_name in batch
-            ]
-
-            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Filter out any exceptions and add successful results
-            for result in batch_results:
-                if isinstance(result, dict):
-                    vhosts.append(result)
-                elif isinstance(result, Exception):
-                    logger.warning(f"Error processing vhost: {result}")
-
-        # Sort by name
-        vhosts.sort(key=lambda x: x["name"])
-        return vhosts
+        # Use the indexer for fast database query
+        # This is MUCH faster than filesystem scanning, especially for 6k+ vhosts
+        return VhostIndexer.get_vhosts(include_stats=include_stats)
 
     @staticmethod
     async def get_vhost(vhost_name: str) -> Optional[Dict]:
@@ -328,6 +257,10 @@ class VhostsManager:
             except Exception:
                 pass
 
+        # Remove from index
+        if deleted:
+            VhostIndexer.delete_vhost(vhost_name)
+
         return deleted
 
     @staticmethod
@@ -378,6 +311,10 @@ class VhostsManager:
         try:
             with open(nginx_config_path, 'w') as f:
                 f.write(content)
+
+            # Update index for this vhost (config changed)
+            await VhostIndexer.update_vhost(vhost_name, include_stats=False)
+
             return True
         except Exception:
             return False
@@ -422,6 +359,10 @@ class VhostsManager:
         try:
             with open(full_path, 'w', encoding='utf-8') as f:
                 f.write(content)
+
+            # Update index for this vhost (file modified, may affect size/file_count/mtime)
+            await VhostIndexer.update_vhost(vhost_name, include_stats=True)
+
             return True
         except Exception:
             return False
@@ -476,6 +417,10 @@ class VhostsManager:
                 content = await file.read()
                 f.write(content)
             logger.info(f"Uploaded file to {dest_path}")
+
+            # Update index for this vhost (new file added, affects size/file_count/mtime)
+            await VhostIndexer.update_vhost(vhost_name, include_stats=True)
+
             return True
         except Exception as e:
             logger.error(f"Failed to upload file: {str(e)}")
@@ -646,26 +591,13 @@ class VhostsManager:
     @staticmethod
     async def get_statistics() -> Dict:
         """
-        Get overall vhosts statistics
-        Note: This includes size/file stats, so it will be slower for large numbers of vhosts
+        Get overall vhosts statistics from the index (very fast)
         """
         VhostsManager.ensure_directories()
 
-        # Get vhosts WITH stats for statistics calculation
-        vhosts = await VhostsManager.list_vhosts(include_stats=True)
-
-        total_size = sum(v["size_bytes"] for v in vhosts if v["size_bytes"] is not None)
-        total_files = sum(v["file_count"] for v in vhosts if v["file_count"] is not None)
-        vhosts_with_certs = sum(1 for v in vhosts if v["has_cert"])
-        vhosts_with_nginx = sum(1 for v in vhosts if v["has_nginx_config"])
-
-        return {
-            "total_vhosts": len(vhosts),
-            "total_size_bytes": total_size,
-            "total_files": total_files,
-            "vhosts_with_certs": vhosts_with_certs,
-            "vhosts_with_nginx_config": vhosts_with_nginx,
-        }
+        # Use the indexer for fast statistics query
+        # This uses SQL aggregation functions and is extremely fast even for 6k+ vhosts
+        return VhostIndexer.get_statistics()
 
     @staticmethod
     async def create_custom_vhost(vhost_name: str, template_type: str, backend_c2_server: Optional[str] = None, ip_address: Optional[str] = None) -> Dict:
@@ -870,6 +802,9 @@ class VhostsManager:
                     f.write(header)
                     for site in sorted(existing_sites):
                         f.write(f"{site}\n")
+
+            # Add the new vhost to the index
+            await VhostIndexer.update_vhost(vhost_name, include_stats=True)
 
             return {
                 "success": True,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Globe, Lock, FileText, Plus, Trash2, RefreshCw, Settings, AlertCircle, CheckCircle, Download, Edit3, Upload, Key, FileCode, Search, FileSearch, ChevronDown } from 'lucide-react'
+import { Globe, Lock, FileText, Plus, Trash2, RefreshCw, Settings, AlertCircle, CheckCircle, Download, Edit3, Upload, Key, FileCode, Search, FileSearch, ChevronDown, Database } from 'lucide-react'
 import {
   listVhosts,
   getStatistics,
@@ -19,7 +19,9 @@ import {
   getCustomVhostTemplates,
   getVhostLogs,
   getPhaseStatus,
-  runSpecificPhases
+  runSpecificPhases,
+  getIndexStatus,
+  refreshIndex
 } from '../services/vhosts'
 import ProgressTracker from '../components/ProgressTracker'
 import LoadingScreen from '../components/LoadingScreen'
@@ -108,9 +110,14 @@ export default function VirtualHosts() {
   const [errorLogs, setErrorLogs] = useState('')
   const [loadingLogs, setLoadingLogs] = useState(false)
 
+  // Index status state
+  const [indexStatus, setIndexStatus] = useState(null)
+  const [rebuildingIndex, setRebuildingIndex] = useState(false)
+
   // Load data on mount and when showStats changes
   useEffect(() => {
     loadData()
+    loadIndexStatus()
   }, [showStats])
 
   const loadData = async () => {
@@ -131,10 +138,38 @@ export default function VirtualHosts() {
     }
   }
 
+  const loadIndexStatus = async () => {
+    try {
+      const status = await getIndexStatus()
+      setIndexStatus(status)
+    } catch (err) {
+      console.error('Error loading index status:', err)
+    }
+  }
+
   const handleRefresh = async () => {
     setRefreshing(true)
     await loadData()
+    await loadIndexStatus()
     setRefreshing(false)
+  }
+
+  const handleRebuildIndex = async () => {
+    if (!confirm('Rebuild the entire vhost index? This will scan all vhosts and update the database.')) {
+      return
+    }
+
+    try {
+      setRebuildingIndex(true)
+      await refreshIndex(showStats)
+      alert('Index rebuilt successfully!')
+      await loadData()
+      await loadIndexStatus()
+    } catch (err) {
+      alert(`Failed to rebuild index: ${err.response?.data?.detail || err.message}`)
+    } finally {
+      setRebuildingIndex(false)
+    }
   }
 
   const loadTemplates = async () => {
@@ -670,9 +705,9 @@ export default function VirtualHosts() {
               checked={showStats}
               onChange={(e) => setShowStats(e.target.checked)}
               className="mr-2 w-4 h-4"
-              title="Show size and file count (slower for large datasets)"
+              title="Include size and file count from database index"
             />
-            <label htmlFor="showStats" className="text-sm text-gray-300 cursor-pointer select-none" title="Show size and file count (slower for large datasets)">
+            <label htmlFor="showStats" className="text-sm text-gray-300 cursor-pointer select-none" title="Include size and file count from database index">
               Show Stats
             </label>
           </div>
@@ -704,6 +739,53 @@ export default function VirtualHosts() {
 
       {/* Error Message */}
       {error && <ErrorMessage message={error} />}
+
+      {/* Index Status Banner */}
+      {indexStatus && (
+        <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-500/30 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Database className="w-6 h-6 text-blue-400" />
+              <div>
+                <h3 className="text-sm font-medium text-white">Database Index Status</h3>
+                <div className="flex items-center space-x-4 mt-1 text-xs text-gray-400">
+                  <span>
+                    Last refresh: {indexStatus.last_refresh ? formatDate(indexStatus.last_refresh) : 'Never'}
+                  </span>
+                  <span>•</span>
+                  <span>
+                    Next auto-refresh: {indexStatus.last_refresh
+                      ? formatDate(new Date(new Date(indexStatus.last_refresh).getTime() + indexStatus.refresh_interval_hours * 60 * 60 * 1000).toISOString())
+                      : 'Pending'}
+                  </span>
+                  <span>•</span>
+                  <span>
+                    Indexed: {indexStatus.total_indexed.toLocaleString()} vhosts
+                  </span>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handleRebuildIndex}
+              disabled={rebuildingIndex}
+              className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm disabled:opacity-50 transition-colors"
+              title="Manually rebuild the entire index"
+            >
+              {rebuildingIndex ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Rebuilding...
+                </>
+              ) : (
+                <>
+                  <Database className="w-4 h-4 mr-2" />
+                  Rebuild Index
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Statistics Cards */}
       {statistics && (

@@ -25,6 +25,7 @@ from app.schemas import (
 from app.auth import get_current_active_user
 from app.services.vhosts import VhostsManager
 from app.services.progress import ProgressManager
+from app.services.vhost_indexer import VhostIndexer
 
 router = APIRouter(prefix="/api/vhosts", tags=["Virtual Hosts"])
 
@@ -431,3 +432,47 @@ async def get_vhost_logs(
         raise HTTPException(status_code=404, detail="Log file not found")
 
     return {"content": content, "log_type": log_type, "lines": lines}
+
+
+@router.post("/index/refresh")
+async def refresh_index(
+    include_stats: bool = True,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Manually trigger a full refresh of the vhost index
+
+    Args:
+        include_stats: Whether to calculate size/file count (default: True)
+
+    This will rebuild the entire vhost index from the filesystem.
+    Use this when you want to ensure the index is completely up-to-date.
+    """
+    await VhostIndexer.rebuild_index(include_stats=include_stats)
+    last_refresh = VhostIndexer.get_last_refresh_time()
+
+    return {
+        "success": True,
+        "message": "Vhost index refreshed successfully",
+        "last_refresh": last_refresh.isoformat() if last_refresh else None
+    }
+
+
+@router.get("/index/status")
+async def get_index_status(
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get the status of the vhost index
+
+    Returns information about when the index was last refreshed
+    and how many vhosts are currently indexed.
+    """
+    last_refresh = VhostIndexer.get_last_refresh_time()
+    stats = VhostIndexer.get_statistics()
+
+    return {
+        "last_refresh": last_refresh.isoformat() if last_refresh else None,
+        "total_indexed": stats["total_vhosts"],
+        "refresh_interval_hours": VhostIndexer.REFRESH_INTERVAL_HOURS
+    }

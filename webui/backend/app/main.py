@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from app.config import settings
 from app.database import init_db
 from app.routers import auth, services, core, system, vhosts, dns, community
+from app.services.vhost_indexer import VhostIndexer
 
 
 @asynccontextmanager
@@ -15,9 +16,17 @@ async def lifespan(app: FastAPI):
     """Lifespan events for the application"""
     # Startup
     await init_db()
+
+    # Initialize vhost indexer with background refresh
+    # This will create the database, perform initial index if needed,
+    # and start a background task to refresh every 2 hours
+    await VhostIndexer.start_background_refresh(initial_rebuild=False)
+
     yield
+
     # Shutdown
-    pass
+    # Stop the background refresh task
+    await VhostIndexer.stop_background_refresh()
 
 
 # Create FastAPI app
