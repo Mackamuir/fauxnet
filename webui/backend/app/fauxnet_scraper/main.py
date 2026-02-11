@@ -149,3 +149,129 @@ async def scrape_sites_async(sites_file=None, sites_list=None, options=None, pro
         if progress_tracker:
             progress_tracker.error_occurred(str(e))
         return {"success": False, "error": str(e)}
+
+
+async def scrape_phases_async(phase_numbers, sites_list=None, options=None, progress_tracker=None):
+    """
+    Run specific scraping phases (similar to scrape_sites_async but selective)
+
+    Args:
+        phase_numbers: List of phase numbers to execute (will be sorted)
+        sites_list: URLs to scrape (required if phase 2 in list)
+        options: Scraping options dict
+        progress_tracker: Progress tracker
+
+    Returns:
+        Dict with success status and details
+    """
+    # Setup environment
+    setup_environment()
+    setup_logging()
+
+    logger.info(f"Starting Fauxnet Scraper - Running phases: {phase_numbers}")
+
+    # Sort phases to ensure dependencies run in order
+    phases_to_run = sorted(phase_numbers)
+
+    # Validate sites_list if phase 2 is included
+    if 2 in phases_to_run:
+        if not sites_list:
+            error_msg = "Phase 2 (Download websites) requires sites_list"
+            logger.error(error_msg)
+            if progress_tracker:
+                progress_tracker.error_occurred(error_msg)
+            return {"success": False, "error": error_msg}
+
+    try:
+        # Track which phase we're on for progress updates
+        for i, phase_num in enumerate(phases_to_run):
+            phase_index = i + 1  # For progress: "Phase 1 of 3"
+
+            if phase_num == 1:
+                # Phase 1: Generate CA
+                logger.info("Phase 1: Generating Certificate Authority")
+                if progress_tracker:
+                    progress_tracker.update(phase_index, "Generating CA", 0, 1, "Generating Certificate Authority...")
+                await generate_CA()
+
+            elif phase_num == 2:
+                # Phase 2: Download websites
+                logger.info(f"Phase 2: Downloading {len(sites_list)} websites")
+                if progress_tracker:
+                    progress_tracker.update(phase_index, "Downloading websites", 0, len(sites_list), f"Downloading {len(sites_list)} websites...")
+
+                # Ensure Microsoft NCSI is included
+                ncsi_url = "http://www.msftncsi.com"
+                if ncsi_url not in sites_list and "https://www.msftncsi.com" not in sites_list:
+                    sites_list.append(ncsi_url)
+                    logger.info(f"Added Microsoft NCSI site: {ncsi_url}")
+
+                await download_websites(sites_list, options, progress_tracker)
+
+                # Ensure NCSI site is created
+                logger.info("Ensuring Microsoft NCSI site")
+                generate_ncsi_site()
+
+            elif phase_num == 3:
+                # Phase 3: Generate certificates
+                logger.info("Phase 3: Generating SSL certificates")
+                if progress_tracker:
+                    progress_tracker.update(phase_index, "Generating certificates", 0, 0, "Generating SSL certificates...")
+                await generate_vhost_certificates(progress_tracker)
+
+            elif phase_num == 4:
+                # Phase 4: Generate hosts entries
+                logger.info("Phase 4: Generating hosts entries")
+                if progress_tracker:
+                    progress_tracker.update(phase_index, "Generating hosts", 0, 0, "Generating hosts entries...")
+                await generate_hosts_nginx(progress_tracker)
+
+            elif phase_num == 5:
+                # Phase 5: Generate nginx configs
+                logger.info("Phase 5: Generating nginx configurations")
+                if progress_tracker:
+                    progress_tracker.update(phase_index, "Generating nginx configs", 0, 0, "Generating nginx configurations...")
+
+                # Get discovered URLs from scraping (needed for nginx config generation)
+                site_urls = get_discovered_urls()
+                await generate_nginx_conf(site_urls, progress_tracker)
+
+            elif phase_num == 6:
+                # Phase 6: Generate landing page
+                logger.info("Phase 6: Generating fauxnet.info landing page")
+                if progress_tracker:
+                    progress_tracker.update(phase_index, "Generating landing page", 0, 1, "Generating fauxnet.info landing page...")
+                await generate_landing_page()
+
+            elif phase_num == 7:
+                # Phase 7: Generate sites summary
+                logger.info("Phase 7: Generating sites summary")
+                if progress_tracker:
+                    progress_tracker.update(phase_index, "Generating summary", 0, 1, "Generating sites summary...")
+
+                # Get discovered URLs for summary
+                site_urls = get_discovered_urls()
+                await generate_sites_summary(site_urls)
+
+        # Cleanup temporary CA directory
+        from . import config
+        if config.TMP_CA_DIR and os.path.exists(config.TMP_CA_DIR):
+            logger.debug(f"Cleaning up temporary CA directory: {config.TMP_CA_DIR}")
+            shutil.rmtree(config.TMP_CA_DIR)
+
+        logger.info(f"✓ Fauxnet Scraper completed phases {phases_to_run} successfully")
+
+        if progress_tracker:
+            progress_tracker.complete()
+
+        return {
+            "success": True,
+            "phases_executed": phases_to_run,
+            "config_location": FAUXNET_CONFIG
+        }
+
+    except Exception as e:
+        logger.error(f"Phase execution failed: {str(e)}", exc_info=True)
+        if progress_tracker:
+            progress_tracker.error_occurred(str(e))
+        return {"success": False, "error": str(e)}

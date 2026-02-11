@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Globe, Lock, FileText, Plus, Trash2, RefreshCw, Settings, AlertCircle, CheckCircle, Download, Edit3, Upload, Key, FileCode, Search, FileSearch } from 'lucide-react'
+import { Globe, Lock, FileText, Plus, Trash2, RefreshCw, Settings, AlertCircle, CheckCircle, Download, Edit3, Upload, Key, FileCode, Search, FileSearch, ChevronDown } from 'lucide-react'
 import {
   listVhosts,
   getStatistics,
@@ -17,7 +17,9 @@ import {
   getVhost,
   createCustomVhost,
   getCustomVhostTemplates,
-  getVhostLogs
+  getVhostLogs,
+  getPhaseStatus,
+  runSpecificPhases
 } from '../services/vhosts'
 import ProgressTracker from '../components/ProgressTracker'
 import LoadingScreen from '../components/LoadingScreen'
@@ -30,6 +32,7 @@ export default function VirtualHosts() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [showStats, setShowStats] = useState(false) // Toggle for including size/file stats
 
   // Search filters for each section
   const [scrapedSearch, setScrapedSearch] = useState('')
@@ -44,6 +47,23 @@ export default function VirtualHosts() {
   const [scrapeError, setScrapeError] = useState(null)
   const [scrapeDepth, setScrapeDepth] = useState(1)
   const [scrapePageRequisites, setScrapePageRequisites] = useState(true)
+
+  // Advanced scraping options state
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
+  const [advancedMode, setAdvancedMode] = useState(false)
+  const [selectedPhases, setSelectedPhases] = useState([1, 2, 3, 4, 5, 6, 7])
+  const [phaseStatus, setPhaseStatus] = useState([])
+
+  // Phase definitions
+  const PHASES = [
+    { number: 1, name: "Generate CA", description: "Generate Certificate Authority", dependencies: [] },
+    { number: 2, name: "Download websites", description: "Download website content using wget", dependencies: [1] },
+    { number: 3, name: "Generate certificates", description: "Generate SSL certificates for vhosts", dependencies: [1, 2] },
+    { number: 4, name: "Generate hosts", description: "Generate hosts file entries", dependencies: [2] },
+    { number: 5, name: "Generate nginx configs", description: "Generate nginx configurations", dependencies: [2, 3, 4] },
+    { number: 6, name: "Generate landing page", description: "Generate fauxnet.info landing page", dependencies: [3, 4, 5] },
+    { number: 7, name: "Generate summary", description: "Generate sites summary file", dependencies: [2] }
+  ]
 
   // Sites management modal
   const [showSitesModal, setShowSitesModal] = useState(false)
@@ -88,17 +108,17 @@ export default function VirtualHosts() {
   const [errorLogs, setErrorLogs] = useState('')
   const [loadingLogs, setLoadingLogs] = useState(false)
 
-  // Load data on mount
+  // Load data on mount and when showStats changes
   useEffect(() => {
     loadData()
-  }, [])
+  }, [showStats])
 
   const loadData = async () => {
     try {
       setLoading(true)
       setError(null)
       const [vhostsData, statsData] = await Promise.all([
-        listVhosts(),
+        listVhosts(showStats), // Pass showStats to control whether to include size/file count
         getStatistics()
       ])
       setVhosts(vhostsData)
@@ -162,29 +182,86 @@ export default function VirtualHosts() {
     setScraping(false)
   }
 
+  // Load phase status when modal opens
+  useEffect(() => {
+    if (showScrapeModal) {
+      loadPhaseStatus()
+    }
+  }, [showScrapeModal])
+
+  const loadPhaseStatus = async () => {
+    try {
+      const data = await getPhaseStatus()
+      setPhaseStatus(data.phases)
+    } catch (error) {
+      console.error('Failed to load phase status:', error)
+    }
+  }
+
+  const handlePhaseToggle = (phaseNumber, checked) => {
+    if (checked) {
+      setSelectedPhases([...selectedPhases, phaseNumber].sort((a, b) => a - b))
+    } else {
+      setSelectedPhases(selectedPhases.filter(p => p !== phaseNumber))
+    }
+  }
+
   const handleRunScrape = async () => {
     const sites = scrapeSites
       .split('\n')
       .map(s => s.trim())
       .filter(s => s && !s.startsWith('#'))
 
-    if (sites.length === 0) {
-      alert('Please enter at least one site to scrape')
-      return
-    }
-
-    try {
-      setScraping(true)
-      setScrapeError(null)
-      const options = {
-        depth: scrapeDepth,
-        page_requisites: scrapePageRequisites
+    if (advancedMode) {
+      // Phase-by-phase mode
+      if (selectedPhases.length === 0) {
+        setScrapeError('Please select at least one phase to run')
+        return
       }
-      const result = await startScrape(sites, options)
-      setScrapeOperationId(result.operation_id)
-    } catch (err) {
-      setScrapeError(err.response?.data?.detail || err.message || 'Failed to start scraping')
-      setScraping(false)
+
+      // Check if phase 2 is selected and sites are provided
+      if (selectedPhases.includes(2) && sites.length === 0) {
+        setScrapeError('Phase 2 (Download websites) requires site URLs')
+        return
+      }
+
+      try {
+        setScraping(true)
+        setScrapeError(null)
+        const options = {
+          depth: scrapeDepth,
+          page_requisites: scrapePageRequisites
+        }
+        const result = await runSpecificPhases(
+          selectedPhases,
+          selectedPhases.includes(2) ? sites : null,
+          options
+        )
+        setScrapeOperationId(result.operation_id)
+      } catch (err) {
+        setScrapeError(err.response?.data?.detail || err.message || 'Failed to start phase execution')
+        setScraping(false)
+      }
+    } else {
+      // Original full scrape mode
+      if (sites.length === 0) {
+        alert('Please enter at least one site to scrape')
+        return
+      }
+
+      try {
+        setScraping(true)
+        setScrapeError(null)
+        const options = {
+          depth: scrapeDepth,
+          page_requisites: scrapePageRequisites
+        }
+        const result = await startScrape(sites, options)
+        setScrapeOperationId(result.operation_id)
+      } catch (err) {
+        setScrapeError(err.response?.data?.detail || err.message || 'Failed to start scraping')
+        setScraping(false)
+      }
     }
   }
 
@@ -418,6 +495,7 @@ export default function VirtualHosts() {
   }
 
   const formatBytes = (bytes) => {
+    if (bytes === null || bytes === undefined) return '-'
     if (bytes === 0) return '0 B'
     const k = 1024
     const sizes = ['B', 'KB', 'MB', 'GB']
@@ -493,7 +571,9 @@ export default function VirtualHosts() {
                         <span className="text-white font-medium">{vhost.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-300">{vhost.file_count}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-300">
+                      {vhost.file_count !== null && vhost.file_count !== undefined ? vhost.file_count.toLocaleString() : '-'}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-300">{formatBytes(vhost.size_bytes)}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {vhost.has_cert ? (
@@ -557,7 +637,7 @@ export default function VirtualHosts() {
           <h1 className="text-2xl font-bold text-white">Virtual Hosts</h1>
           <p className="text-gray-400 mt-1">Manage virtual hosts and web content</p>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex items-center space-x-2">
           <button
             onClick={handleDownloadCA}
             className="flex items-center px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded"
@@ -581,6 +661,22 @@ export default function VirtualHosts() {
             <Settings className="w-4 h-4 mr-2" />
             Manage Sites
           </button>
+
+          {/* Stats Toggle */}
+          <div className="flex items-center px-4 py-2 bg-dark-100 border border-dark-200 rounded">
+            <input
+              type="checkbox"
+              id="showStats"
+              checked={showStats}
+              onChange={(e) => setShowStats(e.target.checked)}
+              className="mr-2 w-4 h-4"
+              title="Show size and file count (slower for large datasets)"
+            />
+            <label htmlFor="showStats" className="text-sm text-gray-300 cursor-pointer select-none" title="Show size and file count (slower for large datasets)">
+              Show Stats
+            </label>
+          </div>
+
           <button
             onClick={handleRefresh}
             disabled={refreshing}
@@ -768,6 +864,124 @@ export default function VirtualHosts() {
                       </div>
                     </div>
 
+                    {/* Advanced Options Section */}
+                    <div className="border-t border-dark-200 pt-4 mt-4">
+                      <button
+                        onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                        className="flex items-center text-sm font-medium text-gray-300 hover:text-white mb-3"
+                      >
+                        <ChevronDown
+                          className={`w-4 h-4 mr-2 transition-transform ${
+                            showAdvancedOptions ? 'rotate-180' : ''
+                          }`}
+                        />
+                        Advanced Options
+                      </button>
+
+                      {showAdvancedOptions && (
+                        <div className="bg-dark-50 border border-dark-200 rounded-lg p-4 space-y-4">
+                          {/* Phase Status Visualization */}
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs text-gray-400">Phase Completion Status</span>
+                              <button
+                                onClick={loadPhaseStatus}
+                                className="text-xs text-primary-400 hover:text-primary-300"
+                              >
+                                <RefreshCw className="w-3 h-3 inline mr-1" />
+                                Refresh
+                              </button>
+                            </div>
+                            <div className="flex gap-1">
+                              {[1, 2, 3, 4, 5, 6, 7].map(num => {
+                                const phase = phaseStatus.find(p => p.phase_number === num)
+                                return (
+                                  <div
+                                    key={num}
+                                    className={`flex-1 h-2 rounded ${
+                                      phase?.completed ? 'bg-green-500' : 'bg-dark-300'
+                                    }`}
+                                    title={`Phase ${num}: ${phase?.name || 'Unknown'} - ${
+                                      phase?.completed ? 'Completed' : 'Not completed'
+                                    }`}
+                                  />
+                                )
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Enable Advanced Mode Toggle */}
+                          <label className="flex items-center text-sm">
+                            <input
+                              type="checkbox"
+                              checked={advancedMode}
+                              onChange={(e) => setAdvancedMode(e.target.checked)}
+                              className="mr-2"
+                              disabled={scraping}
+                            />
+                            <span className="text-gray-300">Enable phase-by-phase execution</span>
+                          </label>
+
+                          {advancedMode && (
+                            <>
+                              <div className="text-xs text-gray-400 italic">
+                                Select specific phases to run. Dependencies will be validated automatically.
+                              </div>
+
+                              {/* Phase Selection Checkboxes */}
+                              <div className="space-y-2 max-h-64 overflow-y-auto">
+                                {PHASES.map(phase => {
+                                  const phaseInfo = phaseStatus.find(p => p.phase_number === phase.number)
+                                  const isSelected = selectedPhases.includes(phase.number)
+
+                                  return (
+                                    <label
+                                      key={phase.number}
+                                      className="flex items-start text-sm p-2 rounded hover:bg-dark-100 cursor-pointer"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={(e) => handlePhaseToggle(phase.number, e.target.checked)}
+                                        className="mr-3 mt-0.5"
+                                        disabled={scraping}
+                                      />
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-white font-medium">
+                                            Phase {phase.number}: {phase.name}
+                                          </span>
+                                          {phaseInfo?.completed && (
+                                            <CheckCircle className="w-3 h-3 text-green-400" />
+                                          )}
+                                        </div>
+                                        <div className="text-xs text-gray-500 mt-0.5">
+                                          {phase.description}
+                                        </div>
+                                        {phase.dependencies.length > 0 && (
+                                          <div className="text-xs text-gray-600 mt-1">
+                                            Requires: Phase {phase.dependencies.join(', ')}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </label>
+                                  )
+                                })}
+                              </div>
+
+                              {/* Warnings */}
+                              {selectedPhases.includes(2) && (
+                                <div className="bg-yellow-500 bg-opacity-10 border border-yellow-500 rounded p-2 text-xs text-yellow-300">
+                                  <AlertCircle className="w-3 h-3 inline mr-1" />
+                                  Phase 2 (Download websites) requires site URLs to be entered above
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     {scrapeError && (
                       <div className="bg-red-500 bg-opacity-10 border border-red-500 rounded-lg p-4">
                         <div className="flex items-start">
@@ -791,7 +1005,12 @@ export default function VirtualHosts() {
                     </button>
                     <button
                       onClick={handleRunScrape}
-                      disabled={scraping || !scrapeSites.trim()}
+                      disabled={
+                        scraping ||
+                        (advancedMode
+                          ? selectedPhases.length === 0 || (selectedPhases.includes(2) && !scrapeSites.trim())
+                          : !scrapeSites.trim())
+                      }
                       className="flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded disabled:opacity-50"
                     >
                       {scraping ? (

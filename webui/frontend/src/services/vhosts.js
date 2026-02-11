@@ -1,8 +1,12 @@
 import api from './api'
 
 // List all virtual hosts
-export const listVhosts = async () => {
-  const response = await api.get('/api/vhosts/list')
+// By default, does NOT include size_bytes and file_count for much faster performance
+// Set includeStats=true to get size and file count (slower for large datasets)
+export const listVhosts = async (includeStats = false) => {
+  const response = await api.get('/api/vhosts/list', {
+    params: { include_stats: includeStats }
+  })
   return response.data
 }
 
@@ -129,6 +133,22 @@ export const createCustomVhost = async (vhostName, templateType, backendC2Server
 export const getVhostLogs = async (vhostName, logType = 'access', lines = 100) => {
   const response = await api.get(`/api/vhosts/${vhostName}/logs/${logType}`, {
     params: { lines }
+  })
+  return response.data
+}
+
+// Get phase status for all scraping phases
+export const getPhaseStatus = async () => {
+  const response = await api.get('/api/vhosts/scrape/phases/status')
+  return response.data
+}
+
+// Run specific scraping phases
+export const runSpecificPhases = async (phases, sites = null, options = null) => {
+  const response = await api.post('/api/vhosts/scrape/run-phases', {
+    phases,
+    sites,
+    options: options || null
   })
   return response.data
 }

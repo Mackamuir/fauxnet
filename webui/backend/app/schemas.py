@@ -92,8 +92,8 @@ class VhostInfo(BaseModel):
     has_nginx_config: bool
     cert_path: Optional[str] = None
     nginx_config_path: Optional[str] = None
-    size_bytes: int
-    file_count: int
+    size_bytes: Optional[int] = None  # Optional for performance - only included when include_stats=True
+    file_count: Optional[int] = None  # Optional for performance - only included when include_stats=True
     modified: Optional[str] = None
 
 
@@ -365,3 +365,25 @@ class CommunityNodeAction(BaseModel):
 
 class CommunityConfigUpdate(BaseModel):
     config: CommunityConfig
+
+
+# Phase-based Scraping Schemas
+class PhaseSelectionRequest(BaseModel):
+    """Request to run specific scraping phases"""
+    phases: list[int] = Field(..., min_length=1, max_length=7)
+    sites: Optional[list[str]] = None  # Required if phase 2 is included
+    options: Optional[ScrapeOptions] = None
+
+
+class PhaseInfo(BaseModel):
+    """Information about a scraping phase"""
+    phase_number: int
+    name: str
+    description: str
+    completed: bool
+    dependencies: list[int]
+
+
+class PhaseStatusResponse(BaseModel):
+    """Status of all phases"""
+    phases: list[PhaseInfo]

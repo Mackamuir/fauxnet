@@ -53,8 +53,101 @@ class VhostsManager:
             os.makedirs(directory, exist_ok=True)
 
     @staticmethod
-    async def list_vhosts() -> List[Dict]:
-        """List all virtual hosts (scans vhosts_www for content)"""
+    async def _get_vhost_size_fast(vhost_www_path: str) -> tuple:
+        """
+        Fast calculation of directory size and file count using du command
+        Returns (size_bytes, file_count)
+        """
+        try:
+            # Use du for fast size calculation (in bytes)
+            proc = await asyncio.create_subprocess_exec(
+                'du', '-sb', vhost_www_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL
+            )
+            stdout, _ = await proc.communicate()
+            size_bytes = int(stdout.decode().split()[0]) if proc.returncode == 0 else 0
+
+            # Use find for fast file count
+            proc = await asyncio.create_subprocess_exec(
+                'find', vhost_www_path, '-type', 'f',
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL
+            )
+            stdout, _ = await proc.communicate()
+            file_count = len(stdout.decode().strip().split('\n')) if stdout else 0
+
+            return (size_bytes, file_count)
+        except Exception:
+            return (0, 0)
+
+    @staticmethod
+    async def _process_single_vhost(
+        vhost_name: str,
+        scraped_sites: set,
+        custom_sites: set,
+        fauxnet_sites: set,
+        include_stats: bool = False
+    ) -> Dict:
+        """
+        Process a single vhost and return its info
+        This can be run in parallel for better performance
+        """
+        vhost_www_path = os.path.join(VhostsManager.VHOSTS_WWW_DIR, vhost_name)
+        vhost_config_path = os.path.join(VhostsManager.VHOSTS_CONFIG_DIR, vhost_name)
+        cert_path = os.path.join(vhost_config_path, f"{vhost_name}.cer")
+        nginx_config_path = os.path.join(vhost_config_path, "nginx.conf")
+
+        # Determine vhost type
+        if vhost_name in custom_sites:
+            vhost_type = "custom"
+        elif vhost_name in fauxnet_sites:
+            vhost_type = "fauxnet"
+        elif vhost_name in scraped_sites:
+            vhost_type = "scraped"
+        else:
+            vhost_type = "discovered"
+
+        # Calculate size/file_count only if requested (MUCH faster when False)
+        if include_stats:
+            total_size, file_count = await VhostsManager._get_vhost_size_fast(vhost_www_path)
+        else:
+            total_size, file_count = None, None
+
+        # Get modification time from www directory
+        try:
+            mtime = os.path.getmtime(vhost_www_path)
+            modified_date = datetime.fromtimestamp(mtime).isoformat()
+        except Exception:
+            modified_date = None
+
+        return {
+            "name": vhost_name,
+            "path": vhost_www_path,
+            "config_path": vhost_config_path,
+            "type": vhost_type,
+            "has_cert": os.path.exists(cert_path),
+            "has_nginx_config": os.path.exists(nginx_config_path),
+            "cert_path": cert_path if os.path.exists(cert_path) else None,
+            "nginx_config_path": nginx_config_path if os.path.exists(nginx_config_path) else None,
+            "size_bytes": total_size,
+            "file_count": file_count,
+            "modified": modified_date,
+        }
+
+    @staticmethod
+    async def list_vhosts(include_stats: bool = False, max_parallel: int = 50) -> List[Dict]:
+        """
+        List all virtual hosts (scans vhosts_www for content)
+
+        Args:
+            include_stats: If True, calculate size and file count (slower).
+                          If False, skip stats for much faster listing (default).
+            max_parallel: Maximum number of vhosts to process in parallel (default 50)
+
+        Returns:
+            List of vhost dictionaries
+        """
         VhostsManager.ensure_directories()
         vhosts = []
 
@@ -81,7 +174,6 @@ class VhostsManager:
         # Load custom sites
         custom_sites = set()
         if os.path.exists(VhostsManager.CUSTOM_SITES_FILE):
-            print("here1")
             try:
                 with open(VhostsManager.CUSTOM_SITES_FILE, 'r') as f:
                     for line in f:
@@ -95,67 +187,41 @@ class VhostsManager:
                                 custom_sites.add(hostname)
             except Exception:
                 pass
-        else:
-            print("uh0h1")
 
         # Fauxnet infrastructure sites
         fauxnet_sites = {'fauxnet.info', 'www.msftncsi.com'}
 
-        # Iterate through vhost directories in vhosts_www
-        for vhost_name in os.listdir(VhostsManager.VHOSTS_WWW_DIR):
-            vhost_www_path = os.path.join(VhostsManager.VHOSTS_WWW_DIR, vhost_name)
+        # Get list of vhost directories
+        vhost_names = [
+            name for name in os.listdir(VhostsManager.VHOSTS_WWW_DIR)
+            if os.path.isdir(os.path.join(VhostsManager.VHOSTS_WWW_DIR, name))
+        ]
 
-            if not os.path.isdir(vhost_www_path):
-                continue
+        # Process vhosts in parallel batches for better performance
+        for i in range(0, len(vhost_names), max_parallel):
+            batch = vhost_names[i:i + max_parallel]
 
-            # Config files are in vhosts_config
-            vhost_config_path = os.path.join(VhostsManager.VHOSTS_CONFIG_DIR, vhost_name)
-            cert_path = os.path.join(vhost_config_path, f"{vhost_name}.cer")
-            nginx_config_path = os.path.join(vhost_config_path, "nginx.conf")
+            # Process batch in parallel
+            tasks = [
+                VhostsManager._process_single_vhost(
+                    vhost_name,
+                    scraped_sites,
+                    custom_sites,
+                    fauxnet_sites,
+                    include_stats
+                )
+                for vhost_name in batch
+            ]
 
-            # Determine vhost type
-            if vhost_name in custom_sites:
-                vhost_type = "custom"
-            elif vhost_name in fauxnet_sites:
-                vhost_type = "fauxnet"
-            elif vhost_name in scraped_sites:
-                vhost_type = "scraped"
-            else:
-                vhost_type = "discovered"
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            # Calculate directory size for www content
-            total_size = 0
-            file_count = 0
-            try:
-                for dirpath, dirnames, filenames in os.walk(vhost_www_path):
-                    for filename in filenames:
-                        filepath = os.path.join(dirpath, filename)
-                        if os.path.exists(filepath):
-                            total_size += os.path.getsize(filepath)
-                            file_count += 1
-            except Exception:
-                pass
+            # Filter out any exceptions and add successful results
+            for result in batch_results:
+                if isinstance(result, dict):
+                    vhosts.append(result)
+                elif isinstance(result, Exception):
+                    logger.warning(f"Error processing vhost: {result}")
 
-            # Get modification time from www directory
-            try:
-                mtime = os.path.getmtime(vhost_www_path)
-                modified_date = datetime.fromtimestamp(mtime).isoformat()
-            except Exception:
-                modified_date = None
-
-            vhosts.append({
-                "name": vhost_name,
-                "path": vhost_www_path,  # Points to web content
-                "config_path": vhost_config_path,  # Points to config
-                "type": vhost_type,  # NEW: scraped, custom, or discovered
-                "has_cert": os.path.exists(cert_path),
-                "has_nginx_config": os.path.exists(nginx_config_path),
-                "cert_path": cert_path if os.path.exists(cert_path) else None,
-                "nginx_config_path": nginx_config_path if os.path.exists(nginx_config_path) else None,
-                "size_bytes": total_size,
-                "file_count": file_count,
-                "modified": modified_date,
-            })
         # Sort by name
         vhosts.sort(key=lambda x: x["name"])
         return vhosts
@@ -169,29 +235,65 @@ class VhostsManager:
         if not os.path.exists(vhost_www_path) or not os.path.isdir(vhost_www_path):
             return None
 
-        # Get all vhosts and find the matching one
-        vhosts = await VhostsManager.list_vhosts()
-        for vhost in vhosts:
-            if vhost["name"] == vhost_name:
-                # Add file listing from www directory
-                files = []
-                try:
-                    for root, dirs, filenames in os.walk(vhost_www_path):
-                        for filename in filenames:
-                            filepath = os.path.join(root, filename)
-                            relpath = os.path.relpath(filepath, vhost_www_path)
-                            files.append({
-                                "name": filename,
-                                "path": relpath,
-                                "size": os.path.getsize(filepath),
-                            })
-                except Exception:
-                    pass
+        # Load site lists for type determination
+        scraped_sites = set()
+        if os.path.exists(VhostsManager.SCRAPE_SITES_FILE):
+            try:
+                with open(VhostsManager.SCRAPE_SITES_FILE, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#'):
+                            from urllib.parse import urlparse
+                            parsed = urlparse(line if '://' in line else f'http://{line}')
+                            hostname = parsed.netloc or parsed.path
+                            if hostname:
+                                scraped_sites.add(hostname)
+            except Exception:
+                pass
 
-                vhost["files"] = files
-                return vhost
+        custom_sites = set()
+        if os.path.exists(VhostsManager.CUSTOM_SITES_FILE):
+            try:
+                with open(VhostsManager.CUSTOM_SITES_FILE, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#'):
+                            from urllib.parse import urlparse
+                            parsed = urlparse(line if '://' in line else f'http://{line}')
+                            hostname = parsed.netloc or parsed.path
+                            if hostname:
+                                custom_sites.add(hostname)
+            except Exception:
+                pass
 
-        return None
+        fauxnet_sites = {'fauxnet.info', 'www.msftncsi.com'}
+
+        # Process this single vhost directly (much faster than listing all vhosts)
+        vhost = await VhostsManager._process_single_vhost(
+            vhost_name,
+            scraped_sites,
+            custom_sites,
+            fauxnet_sites,
+            include_stats=True  # Include stats for detail view
+        )
+
+        # Add file listing from www directory
+        files = []
+        try:
+            for root, dirs, filenames in os.walk(vhost_www_path):
+                for filename in filenames:
+                    filepath = os.path.join(root, filename)
+                    relpath = os.path.relpath(filepath, vhost_www_path)
+                    files.append({
+                        "name": filename,
+                        "path": relpath,
+                        "size": os.path.getsize(filepath),
+                    })
+        except Exception:
+            pass
+
+        vhost["files"] = files
+        return vhost
 
     @staticmethod
     async def delete_vhost(vhost_name: str) -> bool:
@@ -543,13 +645,17 @@ class VhostsManager:
 
     @staticmethod
     async def get_statistics() -> Dict:
-        """Get overall vhosts statistics"""
+        """
+        Get overall vhosts statistics
+        Note: This includes size/file stats, so it will be slower for large numbers of vhosts
+        """
         VhostsManager.ensure_directories()
 
-        vhosts = await VhostsManager.list_vhosts()
+        # Get vhosts WITH stats for statistics calculation
+        vhosts = await VhostsManager.list_vhosts(include_stats=True)
 
-        total_size = sum(v["size_bytes"] for v in vhosts)
-        total_files = sum(v["file_count"] for v in vhosts)
+        total_size = sum(v["size_bytes"] for v in vhosts if v["size_bytes"] is not None)
+        total_files = sum(v["file_count"] for v in vhosts if v["file_count"] is not None)
         vhosts_with_certs = sum(1 for v in vhosts if v["has_cert"])
         vhosts_with_nginx = sum(1 for v in vhosts if v["has_nginx_config"])
 
@@ -829,3 +935,214 @@ class VhostsManager:
         except Exception as e:
             logger.error(f"Failed to read log file {log_file}: {str(e)}")
             return f"Error reading log file: {str(e)}"
+
+    @staticmethod
+    async def get_phase_completion_state() -> dict:
+        """
+        Detect which phases are completed based on filesystem state
+
+        Checks:
+        - Phase 1: /opt/fauxnet/config/fauxnet_ca.cer and .key exist
+        - Phase 2: /opt/fauxnet/vhosts_www/ has directories
+        - Phase 3: .cer files exist in vhosts_config subdirectories
+        - Phase 4: /opt/fauxnet/config/hosts.nginx exists
+        - Phase 5: nginx.conf files exist in vhosts_config
+        - Phase 6: /opt/fauxnet/vhosts_www/fauxnet.info/ exists
+        - Phase 7: Look for sites summary artifacts
+
+        Returns:
+            dict with phase numbers as keys, bool completion as values
+        """
+        VhostsManager.ensure_directories()
+
+        completion_state = {}
+
+        # Phase 1: Check CA files
+        ca_cert = os.path.join(VhostsManager.CONFIG_DIR, "fauxnet_ca.cer")
+        ca_key = os.path.join(VhostsManager.CONFIG_DIR, "fauxnet_ca.key")
+        completion_state[1] = os.path.exists(ca_cert) and os.path.exists(ca_key)
+
+        # Phase 2: Check if any vhosts exist
+        vhosts_exist = False
+        if os.path.exists(VhostsManager.VHOSTS_WWW_DIR):
+            vhost_dirs = [
+                d for d in os.listdir(VhostsManager.VHOSTS_WWW_DIR)
+                if os.path.isdir(os.path.join(VhostsManager.VHOSTS_WWW_DIR, d))
+            ]
+            vhosts_exist = len(vhost_dirs) > 0
+        completion_state[2] = vhosts_exist
+
+        # Phase 3: Check if certificate files exist for vhosts
+        certs_exist = False
+        if os.path.exists(VhostsManager.VHOSTS_CONFIG_DIR):
+            config_dirs = [
+                d for d in os.listdir(VhostsManager.VHOSTS_CONFIG_DIR)
+                if os.path.isdir(os.path.join(VhostsManager.VHOSTS_CONFIG_DIR, d))
+            ]
+            for vhost_dir in config_dirs:
+                cert_file = os.path.join(VhostsManager.VHOSTS_CONFIG_DIR, vhost_dir, f"{vhost_dir}.cer")
+                if os.path.exists(cert_file):
+                    certs_exist = True
+                    break
+        completion_state[3] = certs_exist and completion_state[1]
+
+        # Phase 4: Check hosts.nginx file
+        hosts_nginx = os.path.join(VhostsManager.CONFIG_DIR, "hosts.nginx")
+        completion_state[4] = os.path.exists(hosts_nginx)
+
+        # Phase 5: Check if nginx.conf files exist for vhosts
+        nginx_configs_exist = False
+        if os.path.exists(VhostsManager.VHOSTS_CONFIG_DIR):
+            config_dirs = [
+                d for d in os.listdir(VhostsManager.VHOSTS_CONFIG_DIR)
+                if os.path.isdir(os.path.join(VhostsManager.VHOSTS_CONFIG_DIR, d))
+            ]
+            for vhost_dir in config_dirs:
+                nginx_conf = os.path.join(VhostsManager.VHOSTS_CONFIG_DIR, vhost_dir, "nginx.conf")
+                if os.path.exists(nginx_conf):
+                    nginx_configs_exist = True
+                    break
+        completion_state[5] = nginx_configs_exist
+
+        # Phase 6: Check fauxnet.info landing page
+        fauxnet_info = os.path.join(VhostsManager.VHOSTS_WWW_DIR, "fauxnet.info")
+        completion_state[6] = os.path.exists(fauxnet_info) and os.path.isdir(fauxnet_info)
+
+        # Phase 7: Check for sites summary (look for any summary-related files)
+        # The summary is typically written to the config directory
+        summary_exists = False
+        if os.path.exists(VhostsManager.CONFIG_DIR):
+            # Look for common summary file patterns
+            for file in os.listdir(VhostsManager.CONFIG_DIR):
+                if 'summary' in file.lower() or 'sites' in file.lower():
+                    summary_exists = True
+                    break
+        completion_state[7] = summary_exists
+
+        return completion_state
+
+    @staticmethod
+    async def validate_phase_dependencies(phases: list[int]) -> tuple[bool, str]:
+        """
+        Validate that all dependencies for requested phases are satisfied
+
+        Args:
+            phases: List of phase numbers to validate (1-7)
+
+        Returns:
+            (is_valid, error_message)
+            - is_valid: True if all dependencies met
+            - error_message: Detailed error if validation fails
+        """
+        # Define phase dependencies
+        PHASE_DEPENDENCIES = {
+            1: [],
+            2: [1],
+            3: [1, 2],
+            4: [2],
+            5: [2, 3, 4],
+            6: [3, 4, 5],
+            7: [2],
+        }
+
+        PHASE_NAMES = {
+            1: "Generate CA",
+            2: "Download websites",
+            3: "Generate certificates",
+            4: "Generate hosts entries",
+            5: "Generate nginx configs",
+            6: "Generate landing page",
+            7: "Generate summary",
+        }
+
+        # Get current completion state
+        completion_state = await VhostsManager.get_phase_completion_state()
+
+        # Check each requested phase
+        for phase in phases:
+            dependencies = PHASE_DEPENDENCIES.get(phase, [])
+
+            for dep in dependencies:
+                if not completion_state.get(dep, False):
+                    phase_name = PHASE_NAMES.get(phase, f"Phase {phase}")
+
+                    # Build a list of missing dependencies
+                    missing_deps = []
+                    for d in dependencies:
+                        if not completion_state.get(d, False):
+                            missing_deps.append(f"Phase {d} ({PHASE_NAMES.get(d, 'Unknown')})")
+
+                    error_msg = (
+                        f"Phase {phase} ({phase_name}) requires the following phases to be "
+                        f"completed first: {', '.join(missing_deps)}"
+                    )
+                    return (False, error_msg)
+
+        return (True, "")
+
+    @staticmethod
+    async def start_phases_async(
+        phases: list[int],
+        sites: Optional[list[str]] = None,
+        options: Optional[dict] = None
+    ) -> str:
+        """
+        Start execution of specific phases
+
+        Args:
+            phases: List of phase numbers to execute (1-7)
+            sites: List of URLs (required if phase 2 is included)
+            options: ScrapeOptions dict
+
+        Returns:
+            operation_id for progress tracking
+        """
+        VhostsManager.ensure_directories()
+
+        # Sort phases to ensure correct execution order
+        sorted_phases = sorted(phases)
+
+        # Create progress tracker with dynamic phase count
+        progress_tracker = ProgressManager.create_tracker(total_phases=len(sorted_phases))
+        operation_id = progress_tracker.operation_id
+
+        # Convert Pydantic model to dict if needed
+        if options is not None and hasattr(options, 'model_dump'):
+            options_dict = options.model_dump()
+        elif options is not None:
+            options_dict = options
+        else:
+            options_dict = None
+
+        # Start phase execution in background task
+        asyncio.create_task(VhostsManager._run_phases_with_progress(
+            sorted_phases, sites, options_dict, progress_tracker
+        ))
+
+        return operation_id
+
+    @staticmethod
+    async def _run_phases_with_progress(
+        phases: list[int],
+        sites: Optional[list[str]],
+        options: Optional[dict],
+        progress_tracker
+    ):
+        """Run specific phases with progress tracking"""
+        try:
+            # Import the phase execution function
+            from app.fauxnet_scraper import scrape_phases_async
+
+            # Call the phase execution function
+            result = await scrape_phases_async(
+                phase_numbers=phases,
+                sites_list=sites,
+                options=options,
+                progress_tracker=progress_tracker
+            )
+
+            logger.info(f"Phase execution completed: {result}")
+
+        except Exception as e:
+            logger.error(f"Phase execution failed: {str(e)}", exc_info=True)
+            progress_tracker.error_occurred(str(e))

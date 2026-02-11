@@ -17,7 +17,10 @@ from app.schemas import (
     ScrapeResult,
     NginxConfigUpdate,
     FileContentUpdate,
-    ScrapeOptionsRequest
+    ScrapeOptionsRequest,
+    PhaseSelectionRequest,
+    PhaseInfo,
+    PhaseStatusResponse
 )
 from app.auth import get_current_active_user
 from app.services.vhosts import VhostsManager
@@ -28,10 +31,17 @@ router = APIRouter(prefix="/api/vhosts", tags=["Virtual Hosts"])
 
 @router.get("/list", response_model=List[VhostInfo])
 async def list_vhosts(
+    include_stats: bool = False,
     current_user: User = Depends(get_current_active_user)
 ):
-    """List all virtual hosts"""
-    return await VhostsManager.list_vhosts()
+    """
+    List all virtual hosts
+
+    Args:
+        include_stats: If True, include size_bytes and file_count (slower for large datasets).
+                      If False (default), these fields will be null for faster listing.
+    """
+    return await VhostsManager.list_vhosts(include_stats=include_stats)
 
 
 @router.get("/statistics", response_model=VhostStatistics)
@@ -165,6 +175,80 @@ async def get_scrape_progress(
             "Connection": "keep-alive",
         }
     )
+
+
+@router.get("/scrape/phases/status", response_model=PhaseStatusResponse)
+async def get_phases_status(
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get completion status of all scraping phases
+
+    Returns which phases have been completed based on filesystem detection
+    """
+    # Define phase metadata
+    PHASE_METADATA = {
+        1: {"name": "Generate CA", "description": "Generate Certificate Authority", "dependencies": []},
+        2: {"name": "Download websites", "description": "Download website content", "dependencies": [1]},
+        3: {"name": "Generate certificates", "description": "Generate SSL certificates", "dependencies": [1, 2]},
+        4: {"name": "Generate hosts", "description": "Generate hosts entries", "dependencies": [2]},
+        5: {"name": "Generate nginx configs", "description": "Generate nginx configurations", "dependencies": [2, 3, 4]},
+        6: {"name": "Generate landing page", "description": "Generate fauxnet.info page", "dependencies": [3, 4, 5]},
+        7: {"name": "Generate summary", "description": "Generate sites summary", "dependencies": [2]},
+    }
+
+    # Get completion state from filesystem
+    completion_state = await VhostsManager.get_phase_completion_state()
+
+    # Build response
+    phases = []
+    for phase_num in range(1, 8):
+        meta = PHASE_METADATA[phase_num]
+        phases.append(PhaseInfo(
+            phase_number=phase_num,
+            name=meta["name"],
+            description=meta["description"],
+            completed=completion_state.get(phase_num, False),
+            dependencies=meta["dependencies"]
+        ))
+
+    return PhaseStatusResponse(phases=phases)
+
+
+@router.post("/scrape/run-phases")
+async def run_specific_phases(
+    request: PhaseSelectionRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Run specific scraping phases with dependency validation
+
+    Returns operation_id for progress tracking
+    """
+    # Validate phase numbers are 1-7
+    if not all(1 <= p <= 7 for p in request.phases):
+        raise HTTPException(status_code=400, detail="Phase numbers must be between 1 and 7")
+
+    # Check if phase 2 is included and sites are provided
+    if 2 in request.phases and not request.sites:
+        raise HTTPException(status_code=400, detail="Phase 2 (Download websites) requires 'sites' list")
+
+    # Validate dependencies
+    is_valid, error_msg = await VhostsManager.validate_phase_dependencies(request.phases)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+
+    # Start phase execution
+    operation_id = await VhostsManager.start_phases_async(
+        request.phases,
+        request.sites,
+        request.options
+    )
+
+    return {
+        "operation_id": operation_id,
+        "message": f"Running phases: {sorted(request.phases)}"
+    }
 
 
 @router.get("/ca/certificate")
