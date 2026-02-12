@@ -23,9 +23,9 @@ class Topgen_Loopback(CoreService):
 
     def get_text_template(self, name: str) -> str:
         return """ #!/bin/sh
-        for i in $(cat /opt/fauxnet/vhosts_config/*/hosts | awk '{print $1}' | sort -u); do
-	        /usr/sbin/ip addr add $i scope global dev lo
-	    done
+        for i in $(cat /opt/fauxnet/vhosts_config/*/hosts /opt/fauxnet/config/hosts.named | awk '{print $1}' | sort -u); do
+            /usr/sbin/ip addr add $i scope global dev lo
+        done
         """
 
 class Topgen_Named(CoreService):
