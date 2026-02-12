@@ -42,6 +42,7 @@ install_deps() {
 # System config changes to allow all features of core and fauxnet to work
 make_system_changes() {
     sudo aa-disable /etc/apparmor.d/usr.sbin.kea-dhcp4
+    sudo aa-disable /etc/apparmor.d/usr.sbin.named
 }
 
 # Copy files to installation directories
@@ -97,6 +98,7 @@ install_folders
 install_backend
 install_frontend
 install_services
+make_system_changes
 
 echo ""
 echo "=== Installation Complete! ==="
