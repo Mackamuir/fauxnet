@@ -23,7 +23,7 @@ class Topgen_Loopback(CoreService):
 
     def get_text_template(self, name: str) -> str:
         return """ #!/bin/sh
-        for i in $(cat /opt/fauxnet/vhosts/*/hosts | awk '{print $1}' | sort -u); do
+        for i in $(cat /opt/fauxnet/vhosts_config/*/hosts | awk '{print $1}' | sort -u); do
 	        /usr/sbin/ip addr add $i scope global dev lo
 	    done
         """
