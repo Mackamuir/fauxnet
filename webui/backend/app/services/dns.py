@@ -706,6 +706,10 @@ class DNSService:
             root_zone_path = os.path.join(root_zd, "root.zone")
             self._generate_root_zone(root_zone_path)
 
+            # Generate root hints file for caching view
+            named_root_path = os.path.join(root_zd, "named.root")
+            self._generate_named_root(named_root_path)
+
             # Track created zones
             created_zones = set()
 
@@ -931,7 +935,7 @@ view "caching" {
 
 \tzone "." IN {
 \t\ttype hint;
-\t\tfile "/etc/topgen/named.root";
+\t\tfile "''' + os.path.join(root_zd, "named.root") + '''";
 \t};
 };
 
@@ -983,6 +987,14 @@ view "tldsrv" {
                     f.write(f'{ns}.\tA\t{ip}\n')
 
             f.write(';\n; begin root zone data here:\n;\n')
+
+    def _generate_named_root(self, output_path: str):
+        """Generate named.root hints file for the caching view"""
+        with open(output_path, 'w') as f:
+            for ns, ips in ROOT_NS.items():
+                f.write(f'.\t\t\t3600000\tNS\t{ns}.\n')
+                for ip in ips:
+                    f.write(f'{ns}.\t\t3600000\tA\t{ip}\n')
 
     def _get_tld_zone_header(self) -> str:
         """Get header for TLD zone files"""
