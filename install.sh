@@ -41,8 +41,8 @@ install_deps() {
 
 # System config changes to allow all features of core and fauxnet to work
 make_system_changes() {
-    sudo aa-disable /etc/apparmor.d/usr.sbin.kea-dhcp4
-    sudo aa-disable /etc/apparmor.d/usr.sbin.named
+    sudo aa-disable /etc/apparmor.d/usr.sbin.kea-dhcp4 || true
+    sudo aa-disable /etc/apparmor.d/usr.sbin.named || true
 }
 
 # Copy files to installation directories
