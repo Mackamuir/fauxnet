@@ -29,10 +29,10 @@ install_core() {
 # Install system dependencies
 install_deps() {
     echo "Installing system dependencies..."
-    sudo systemctl mask kea-dhcp4-server kea-dhcp6-server kea-ddns-server isc-dhcp-server isc-dhcp-server6 kea-dhcp-ddns-server nginx || true
+    sudo systemctl mask kea-dhcp4-server kea-dhcp6-server kea-ddns-server isc-dhcp-server isc-dhcp-server6 kea-dhcp-ddns-server nginx named || true
     sudo apt update
     # Core Packages
-    sudo apt install -y isc-dhcp-server isc-dhcp-client kea openssh-client openssh-server keepalived nginx apparmor-utils
+    sudo apt install -y isc-dhcp-server isc-dhcp-client kea openssh-client openssh-server keepalived nginx bind9 apparmor-utils
     # Fauxnet Packages
     sudo apt install -y python3 python3-pip python3-venv nodejs npm
     # Community Packages
