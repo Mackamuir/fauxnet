@@ -1,6 +1,11 @@
-# use a common key for all certificates:
-ssl_certificate_key $FAUXNET_CONFIG/fauxnet_vh.key;
+http {
+    # use a common key for all certificates:
+    ssl_certificate_key $FAUXNET_CONFIG/fauxnet_vh.key;
 
-# ensure enumerated https server blocks fit into nginx hash table:
-server_names_hash_bucket_size 256;
-server_names_hash_max_size 131070;
+    # ensure enumerated https server blocks fit into nginx hash table:
+    server_names_hash_bucket_size 256;
+    server_names_hash_max_size 131070;
+
+    # Include all vhost configurations from vhosts_config
+    include $FAUXNET_VHOSTS_CONFIG/*/nginx.conf;
+}

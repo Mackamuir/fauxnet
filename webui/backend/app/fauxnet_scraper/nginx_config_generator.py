@@ -76,12 +76,10 @@ async def generate_nginx_conf(site_urls=None, progress_tracker=None):
                 template_source = Template(template.read())
                 template_result = template_source.substitute(
                     FAUXNET_CONFIG=FAUXNET_CONFIG,
-                    FAUXNET_VHOSTS=FAUXNET_VHOSTS_WWW
+                    FAUXNET_VHOSTS=FAUXNET_VHOSTS_WWW,
+                    FAUXNET_VHOSTS_CONFIG=FAUXNET_VHOSTS_CONFIG
                 )
             f.write(template_result)
-            f.write(f"\n    # Include all vhost configurations from vhosts_config\n")
-            f.write(f"    include {FAUXNET_VHOSTS_CONFIG}/*/nginx.conf;\n")
-            f.write("}\n")
             f.flush()
     except Exception as e:
         logger.error(f'Failed writing base for nginx.conf: {str(e)}')
