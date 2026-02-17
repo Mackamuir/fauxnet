@@ -6,7 +6,8 @@ PartOf=fauxnet.target
 Type=simple
 User=root
 WorkingDirectory=/opt/fauxnet/webui/frontend
-ExecStart=npm run dev
+ExecStartPre=npm run build
+ExecStart=npm run preview
 Restart=always
 
 [Install]
