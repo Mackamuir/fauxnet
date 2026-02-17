@@ -43,6 +43,12 @@ install_deps() {
 make_system_changes() {
     sudo aa-disable /etc/apparmor.d/usr.sbin.kea-dhcp4 || true
     sudo aa-disable /etc/apparmor.d/usr.sbin.named || true
+
+    # Raise file descriptor limits for nginx with many vhosts
+    if ! grep -q "nofile 65535" /etc/security/limits.conf; then
+        echo "*    soft    nofile    65535" | sudo tee -a /etc/security/limits.conf
+        echo "*    hard    nofile    65535" | sudo tee -a /etc/security/limits.conf
+    fi
 }
 
 # Copy files to installation directories

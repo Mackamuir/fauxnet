@@ -43,7 +43,7 @@ class Topgen_Nginx(CoreService):
     group: str = "Greybox"
     directories: list[str] = ['/var/log/nginx']
     dependencies: list[str] = ['Topgen-Loopback']
-    startup: list[str] = ["/usr/sbin/nginx -c /opt/fauxnet/config/nginx.conf"]
+    startup: list[str] = ["ulimit -n 65535 && /usr/sbin/nginx -c /opt/fauxnet/config/nginx.conf"]
     validate: list[str] = ["pidof nginx"]
     shutdown: list[str] = ["/usr/bin/pkill nginx"]
 

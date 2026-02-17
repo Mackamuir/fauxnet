@@ -1,8 +1,30 @@
+worker_processes auto;
+worker_rlimit_nofile 65535;
+pid /run/nginx.pid;
+error_log /var/log/nginx/error.log;
+
+events {
+    worker_connections 4096;
+}
+
 http {
-    # use a common key for all certificates:
+    # MIME types
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # Logging
+    access_log /var/log/nginx/access.log;
+
+    # Performance
+    sendfile on;
+    tcp_nopush on;
+    keepalive_timeout 65;
+
+    # SSL settings
+    ssl_protocols TLSv1.2 TLSv1.3;
     ssl_certificate_key $FAUXNET_CONFIG/fauxnet_vh.key;
 
-    # ensure enumerated https server blocks fit into nginx hash table:
+    # Ensure enumerated https server blocks fit into nginx hash table
     server_names_hash_bucket_size 256;
     server_names_hash_max_size 131070;
 
