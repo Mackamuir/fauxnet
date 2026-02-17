@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Globe, Lock, FileText, Plus, Trash2, RefreshCw, Settings, AlertCircle, CheckCircle, Download, Edit3, Upload, Key, FileCode, Search, FileSearch, ChevronDown, Database } from 'lucide-react'
 import {
   listVhosts,
@@ -23,10 +23,149 @@ import {
   getIndexStatus,
   refreshIndex
 } from '../services/vhosts'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import ProgressTracker from '../components/ProgressTracker'
 import LoadingScreen from '../components/LoadingScreen'
 import ErrorMessage from '../components/ErrorMessage'
 import EmptyState from '../components/EmptyState'
+
+const ROW_HEIGHT = 52
+
+function VhostSection({ title, vhosts, searchValue, setSearchValue, icon, color, emptyMessage, formatBytes, formatDate, onEditNginx, onViewLogs, onBrowseFiles, onUpload, onDelete }) {
+  const parentRef = useRef(null)
+
+  const virtualizer = useVirtualizer({
+    count: vhosts.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 10,
+  })
+
+  const colGrid = 'grid grid-cols-[1fr_80px_90px_60px_60px_170px_160px]'
+
+  return (
+    <div className="mb-8">
+      <div className={`flex items-center justify-between mb-4 pb-3 border-b-2 border-${color}-500`}>
+        <div className="flex items-center space-x-3">
+          {icon}
+          <h2 className="text-xl font-bold text-white">{title}</h2>
+          <span className={`px-2 py-1 rounded text-xs font-medium bg-${color}-500 bg-opacity-20 text-${color}-400`}>
+            {vhosts.length}
+          </span>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <input
+            type="text"
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            placeholder="Search..."
+            className="pl-10 pr-4 py-2 bg-dark-50 border border-dark-200 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-64"
+          />
+        </div>
+      </div>
+
+      <div className="bg-dark-100 border border-dark-200 rounded-lg overflow-hidden">
+        {/* Header */}
+        <div className={`${colGrid} bg-dark-50 border-b border-dark-200`}>
+          <div className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Name</div>
+          <div className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Files</div>
+          <div className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Size</div>
+          <div className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">SSL</div>
+          <div className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Nginx</div>
+          <div className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Modified</div>
+          <div className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</div>
+        </div>
+
+        {vhosts.length === 0 ? (
+          <div className="px-6 py-8 text-center">
+            <Globe className="w-10 h-10 text-gray-600 mx-auto mb-2" />
+            <p className="text-gray-400">{emptyMessage}</p>
+          </div>
+        ) : (
+          <div
+            ref={parentRef}
+            className="overflow-y-auto"
+            style={{ maxHeight: Math.min(vhosts.length * ROW_HEIGHT, 600) }}
+          >
+            <div
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const vhost = vhosts[virtualRow.index]
+                return (
+                  <div
+                    key={vhost.name}
+                    className={`${colGrid} items-center border-b border-dark-200 hover:bg-dark-50 absolute top-0 left-0 w-full`}
+                    style={{
+                      height: `${virtualRow.size}px`,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <div className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <Globe className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
+                        <span className="text-white font-medium truncate">{vhost.name}</span>
+                      </div>
+                    </div>
+                    <div className="px-6 py-4 whitespace-nowrap text-gray-300">
+                      {vhost.file_count !== null && vhost.file_count !== undefined ? vhost.file_count.toLocaleString() : '-'}
+                    </div>
+                    <div className="px-6 py-4 whitespace-nowrap text-gray-300">{formatBytes(vhost.size_bytes)}</div>
+                    <div className="px-6 py-4 whitespace-nowrap">
+                      {vhost.has_cert ? (
+                        <span className="flex items-center text-green-400">
+                          <CheckCircle className="w-4 h-4 mr-1" />Yes
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">No</span>
+                      )}
+                    </div>
+                    <div className="px-6 py-4 whitespace-nowrap">
+                      {vhost.has_nginx_config ? (
+                        <span className="flex items-center text-green-400">
+                          <CheckCircle className="w-4 h-4 mr-1" />Yes
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">No</span>
+                      )}
+                    </div>
+                    <div className="px-6 py-4 whitespace-nowrap text-gray-400 text-sm">{formatDate(vhost.modified)}</div>
+                    <div className="px-6 py-4 whitespace-nowrap text-right">
+                      <div className="flex items-center justify-end space-x-2">
+                        {vhost.has_nginx_config && (
+                          <button onClick={() => onEditNginx(vhost.name)} className="text-blue-400 hover:text-blue-300 p-2" title="Edit Nginx Config">
+                            <FileCode className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button onClick={() => onViewLogs(vhost.name)} className="text-purple-400 hover:text-purple-300 p-2" title="View Logs">
+                          <FileSearch className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => onBrowseFiles(vhost.name)} className="text-yellow-400 hover:text-yellow-300 p-2" title="Browse Files">
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => onUpload(vhost.name)} className="text-green-400 hover:text-green-300 p-2" title="Upload File">
+                          <Upload className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => onDelete(vhost.name)} className="text-red-400 hover:text-red-300 p-2" title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function VirtualHosts() {
   const [vhosts, setVhosts] = useState([])
@@ -552,114 +691,6 @@ export default function VirtualHosts() {
   const customVhosts = vhosts.filter(v => v.type === 'custom' && v.name.toLowerCase().includes(customSearch.toLowerCase()))
   const discoveredVhosts = vhosts.filter(v => v.type === 'discovered' && v.name.toLowerCase().includes(discoveredSearch.toLowerCase()))
 
-  // Render a vhost table section
-  const renderVhostSection = (title, vhosts, searchValue, setSearchValue, icon, color, emptyMessage) => (
-    <div className="mb-8">
-      <div className={`flex items-center justify-between mb-4 pb-3 border-b-2 border-${color}-500`}>
-        <div className="flex items-center space-x-3">
-          {icon}
-          <h2 className="text-xl font-bold text-white">{title}</h2>
-          <span className={`px-2 py-1 rounded text-xs font-medium bg-${color}-500 bg-opacity-20 text-${color}-400`}>
-            {vhosts.length}
-          </span>
-        </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-          <input
-            type="text"
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            placeholder="Search..."
-            className="pl-10 pr-4 py-2 bg-dark-50 border border-dark-200 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-64"
-          />
-        </div>
-      </div>
-
-      <div className="bg-dark-100 border border-dark-200 rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-dark-50 border-b border-dark-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Files</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Size</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">SSL</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Nginx</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Modified</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-dark-200">
-              {vhosts.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center">
-                    <Globe className="w-10 h-10 text-gray-600 mx-auto mb-2" />
-                    <p className="text-gray-400">{emptyMessage}</p>
-                  </td>
-                </tr>
-              ) : (
-                vhosts.map((vhost) => (
-                  <tr key={vhost.name} className="hover:bg-dark-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Globe className="w-4 h-4 text-gray-500 mr-2" />
-                        <span className="text-white font-medium">{vhost.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-300">
-                      {vhost.file_count !== null && vhost.file_count !== undefined ? vhost.file_count.toLocaleString() : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-300">{formatBytes(vhost.size_bytes)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {vhost.has_cert ? (
-                        <span className="flex items-center text-green-400">
-                          <CheckCircle className="w-4 h-4 mr-1" />Yes
-                        </span>
-                      ) : (
-                        <span className="text-gray-500">No</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {vhost.has_nginx_config ? (
-                        <span className="flex items-center text-green-400">
-                          <CheckCircle className="w-4 h-4 mr-1" />Yes
-                        </span>
-                      ) : (
-                        <span className="text-gray-500">No</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-400 text-sm">{formatDate(vhost.modified)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end space-x-2">
-                        {vhost.has_nginx_config && (
-                          <button onClick={() => handleEditNginx(vhost.name)} className="text-blue-400 hover:text-blue-300 p-2" title="Edit Nginx Config">
-                            <FileCode className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button onClick={() => handleViewLogs(vhost.name)} className="text-purple-400 hover:text-purple-300 p-2" title="View Logs">
-                          <FileSearch className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleBrowseFiles(vhost.name)} className="text-yellow-400 hover:text-yellow-300 p-2" title="Browse Files">
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleOpenUploadModal(vhost.name)} className="text-green-400 hover:text-green-300 p-2" title="Upload File">
-                          <Upload className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDelete(vhost.name)} className="text-red-400 hover:text-red-300 p-2" title="Delete">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  )
-
   if (loading) {
     return <LoadingScreen message="Loading virtual hosts..." />
   }
@@ -852,37 +883,58 @@ export default function VirtualHosts() {
       ) : (
         <>
           {/* Scraped Sites Section */}
-          {renderVhostSection(
-            'Scraped Sites',
-            scrapedVhosts,
-            scrapedSearch,
-            setScrapedSearch,
-            <Download className="w-6 h-6 text-primary-500" />,
-            'primary',
-            'No scraped sites yet. Use "Scrape Sites" to download websites.'
-          )}
+          <VhostSection
+            title="Scraped Sites"
+            vhosts={scrapedVhosts}
+            searchValue={scrapedSearch}
+            setSearchValue={setScrapedSearch}
+            icon={<Download className="w-6 h-6 text-primary-500" />}
+            color="primary"
+            emptyMessage='No scraped sites yet. Use "Scrape Sites" to download websites.'
+            formatBytes={formatBytes}
+            formatDate={formatDate}
+            onEditNginx={handleEditNginx}
+            onViewLogs={handleViewLogs}
+            onBrowseFiles={handleBrowseFiles}
+            onUpload={handleOpenUploadModal}
+            onDelete={handleDelete}
+          />
 
           {/* Custom Sites Section */}
-          {renderVhostSection(
-            'Custom Sites',
-            customVhosts,
-            customSearch,
-            setCustomSearch,
-            <Plus className="w-6 h-6 text-green-500" />,
-            'green',
-            'No custom sites yet. Use "Create Custom Vhost" to add one.'
-          )}
+          <VhostSection
+            title="Custom Sites"
+            vhosts={customVhosts}
+            searchValue={customSearch}
+            setSearchValue={setCustomSearch}
+            icon={<Plus className="w-6 h-6 text-green-500" />}
+            color="green"
+            emptyMessage='No custom sites yet. Use "Create Custom Vhost" to add one.'
+            formatBytes={formatBytes}
+            formatDate={formatDate}
+            onEditNginx={handleEditNginx}
+            onViewLogs={handleViewLogs}
+            onBrowseFiles={handleBrowseFiles}
+            onUpload={handleOpenUploadModal}
+            onDelete={handleDelete}
+          />
 
           {/* Discovered Sites Section */}
-          {renderVhostSection(
-            'Discovered Sites',
-            discoveredVhosts,
-            discoveredSearch,
-            setDiscoveredSearch,
-            <Globe className="w-6 h-6 text-blue-500" />,
-            'blue',
-            'No discovered sites yet. Wget may discover additional sites when span hosts is enabled during scraping.'
-          )}
+          <VhostSection
+            title="Discovered Sites"
+            vhosts={discoveredVhosts}
+            searchValue={discoveredSearch}
+            setSearchValue={setDiscoveredSearch}
+            icon={<Globe className="w-6 h-6 text-blue-500" />}
+            color="blue"
+            emptyMessage='No discovered sites yet. Wget may discover additional sites when span hosts is enabled during scraping.'
+            formatBytes={formatBytes}
+            formatDate={formatDate}
+            onEditNginx={handleEditNginx}
+            onViewLogs={handleViewLogs}
+            onBrowseFiles={handleBrowseFiles}
+            onUpload={handleOpenUploadModal}
+            onDelete={handleDelete}
+          />
         </>
       )}
 
